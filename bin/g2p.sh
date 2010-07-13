@@ -2,18 +2,25 @@
 #---------------------------------------------------------------------------
 export BASEDIR=$(cd $(dirname $0);pwd)
 export BASENAME=$(echo $(basename $0)|sed "s/\..*//")
-export CFGFILE=$BASEDIR/$BASENAME.ini
+export PLCFGFILE=$BASEDIR/$BASENAME-ini.pl
+export SHCFGFILE=$BASEDIR/$BASENAME-ini.sh
 export PLFILE=$BASEDIR/$BASENAME.pl
 echo BASEDIR=$BASEDIR
-echo CFGFILE=$CFGFILE
+echo PLCFGFILE=$PLCFGFILE
+echo SHCFGFILE=$SHCFGFILE
 echo BASENAME=$BASENAME
 
 #---------------------------------------------------------------------------
-for F in $CFGFILE $PLFILE; do
+for F in $SHCFGFILE $PLCFGFILE $PLFILE; do
    if [ ! -f $F ]; then
       echo error - cannot find $F
+      exit 1
    fi
 done
+
+#---------------------------------------------------------------------------
+#load config
+source $SHCFGFILE
 
 #---------------------------------------------------------------------------
 #parse parameters?

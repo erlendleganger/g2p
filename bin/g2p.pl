@@ -40,9 +40,10 @@ my $fileAircraftConfiguration="$fileprefix-AircraftConfiguration.txt";
 my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreItem.txt";
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 
+
 #---------------------------------------------------------------------------
-#get the initialisation file
-my $cfgfile="$ENV{CFGFILE}";
+#load the initialisation file
+my $cfgfile="$ENV{PLCFGFILE}";
 if(-f $cfgfile){
    require $cfgfile;
 }
@@ -51,6 +52,7 @@ else{
 }
 
 #---------------------------------------------------------------------------
+#get the cfg db
 my $rcfgdb;
 if(defined &get_cfgdb){
    $rcfgdb=get_cfgdb();
@@ -61,6 +63,8 @@ else{
 print Dumper(%$rcfgdb);
 print "$$rcfgdb{USER}{NAME}\n";
 print "premature\n";exit 1;
+
+#---------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------
 #create parser object which is namespace-aware
