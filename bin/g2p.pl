@@ -1,9 +1,4 @@
 #---------------------------------------------------------------------------
-my $conclusion="
-TBD
-";
-
-#---------------------------------------------------------------------------
 use strict;
 use XML::Parser::Expat;
 use Data::Dumper;
@@ -44,6 +39,28 @@ my $fileAircraftModel="$fileprefix-AircraftModel.txt";
 my $fileAircraftConfiguration="$fileprefix-AircraftConfiguration.txt";
 my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreItem.txt";
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
+
+#---------------------------------------------------------------------------
+#get the initialisation file
+my $cfgfile="$ENV{CFGFILE}";
+if(-f $cfgfile){
+   require $cfgfile;
+}
+else{
+   die "cannot find $cfgfile";
+}
+
+#---------------------------------------------------------------------------
+my $rcfgdb;
+if(defined &get_cfgdb){
+   $rcfgdb=get_cfgdb();
+}
+else{
+   die "cannot get cfgdb";
+}
+print Dumper(%$rcfgdb);
+print "$$rcfgdb{USER}{NAME}\n";
+print "premature\n";exit 1;
 
 #---------------------------------------------------------------------------
 #create parser object which is namespace-aware
