@@ -2,10 +2,16 @@
 use strict;
 use XML::Parser::Expat;
 use Data::Dumper;
-my $TotalTimeSeconds;
-my $tcxfile="./testdata/run-0.tcx";
+my $tcxfile="$ENV{TCXFILEINPUT}";
 my %db;
 my $currval;
+
+#---------------------------------------------------------------------------
+my %tcxdb;
+my $TotalTimeSeconds;
+my $Id;
+my $Sport;
+my $StartTime;
 
 
 my $aircraftType;
@@ -31,7 +37,7 @@ my $name;
 my $elevation;
 my $icao;
 my $sep=",";
-my $L="-"x72;
+my $L="-"x75;
 my $file;
 my $fileprefix="xml-parser-expat";
 my $datadir="./tmp";
@@ -45,6 +51,7 @@ my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 #load the initialisation file
 my $cfgfile="$ENV{PLCFGFILE}";
 if(-f $cfgfile){
+   print "loading $cfgfile...\n";
    require $cfgfile;
 }
 else{
@@ -60,9 +67,9 @@ if(defined &get_cfgdb){
 else{
    die "cannot get cfgdb";
 }
-print Dumper(%$rcfgdb);
-print "$$rcfgdb{USER}{NAME}\n";
-print "premature\n";exit 1;
+#print Dumper(%$rcfgdb);
+#print "$$rcfgdb{USER}{NAME}\n";
+#print "premature\n";exit 1;
 
 #---------------------------------------------------------------------------
 
@@ -78,7 +85,13 @@ $parser->setHandlers('Start' => \&start_element,
                      );
 
 #---------------------------------------------------------------------------
-#do the job - parse the tcx file
+#get
+#my ($yy,$mm,$dd,$tt,$rest)=split/-/,$tcxfile;
+#print "yy=$yy, mm=$mm, dd=$dd\n";
+#print "premature\n";exit 1;
+
+#---------------------------------------------------------------------------
+#parse the tcx file
 open TCX,"<$tcxfile" or die "cannot open $tcxfile";
 print "parsing $tcxfile...\n";
 $parser->parse(*TCX);
@@ -86,7 +99,7 @@ close(TCX);
 
 #---------------------------------------------------------------------------
 #dump datastructure for debugging
-#print Dumper(%AircraftModel);
+print Dumper(%tcxdb);
 
 
 #---------------------------------------------------------------------------
@@ -103,6 +116,12 @@ sub char_data{
 #---------------------------------------------------------------------------
 sub start_element{
    my ($p, $el, %atts) = @_;
+   if($el eq "Activity"){
+      $Sport=$atts{Sport};
+   }
+   elsif($el eq "Lap"){
+      $StartTime=$atts{StartTime};
+   }
    #print "start_element: el=$el\n";
 }
 
@@ -111,8 +130,16 @@ sub start_element{
 sub end_element{
    my ($p, $el) = @_;
    #print "end_element: el=$el\n";
-   if($el eq "Lap"){
+   if($el eq "Activity"){
+      print "Activity completed: Sport=$Sport, Id=$Id\n";
+      $tcxdb{$Id}{Sport}=$Sport;
+   }
+   elsif($el eq "Lap"){
+      $tcxdb{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
       print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
+   }
+   elsif($el eq "Id"){
+      $Id=$currval;
    }
    elsif($el eq "TotalTimeSeconds"){
       $TotalTimeSeconds=$currval;
@@ -249,72 +276,3 @@ sub cwid_end_element{
       $longitude=$currval;
    }
 }  
-
-__DATA__
-key n2:AircraftModel: n2:aircraftConfigurations
-key n2:AircraftModel: n2:aircraftType
-key n2:AircraftModel: n2:combatRadius
-key n2:AircraftModel: n2:dayAndNightCapabilityCode
-key n2:AircraftModel: n2:defaultTaskedQuantity
-key n2:AircraftModel: n2:enduranceTime
-key n2:AircraftModel: n2:fuelReserveWeightCapacity
-key n2:AircraftModel: n2:fuelType
-key n2:AircraftModel: n2:grossWeight
-key n2:AircraftModel: n2:highAltitudeBurnRate
-key n2:AircraftModel: n2:internalFuelWeightCapacity
-key n2:AircraftModel: n2:lastModified
-key n2:AircraftModel: n2:lowAltitudeBurnRate
-key n2:AircraftModel: n2:mediumAltitudeBurnRate
-key n2:AircraftModel: n2:refuelingOnloadRate
-key n2:AircraftModel: n2:refuelingSystemType
-key n2:AircraftModel: xsi:type
-key n193:StoreItem: n193:itemCode
-key n193:StoreItem: n193:jammerBandwidths
-key n193:StoreItem: n193:jammerFieldOfView
-key n193:StoreItem: n193:lastModified
-key n193:StoreItem: n193:nominalRange
-key n193:StoreItem: n193:nominalSpeed
-key n193:StoreItem: n193:notes
-key n193:StoreItem: n193:reusable
-key n193:StoreItem: n193:standoffWeaponType
-key n193:StoreItem: n193:typeCode
-key n194:TaskableUnit: n194:airDefenseUnitWeaponSystems
-key n194:TaskableUnit: n194:aircraftUnitLocations
-key n194:TaskableUnit: n194:comments
-key n194:TaskableUnit: n194:contacts
-key n194:TaskableUnit: n194:country
-key n194:TaskableUnit: n194:function
-key n194:TaskableUnit: n194:geodetic
-key n194:TaskableUnit: n194:groundControlUnitEquipment
-key n194:TaskableUnit: n194:icao
-key n194:TaskableUnit: n194:id
-key n194:TaskableUnit: n194:lastModified
-key n194:TaskableUnit: n194:locationName
-key n194:TaskableUnit: n194:missileUnitWeaponSystems
-key n194:TaskableUnit: n194:operatingStatus
-key n194:TaskableUnit: n194:parentCountry
-key n194:TaskableUnit: n194:parentId
-key n194:TaskableUnit: n194:position
-key n194:TaskableUnit: n194:positionDateTime
-key n194:TaskableUnit: n194:reportDateTime
-key n194:TaskableUnit: n194:service
-key n194:TaskableUnit: n194:taskedDesignator
-key n194:TaskableUnit: n194:taskingAgencyName
-key n194:TaskableUnit: xsi:type
-key n4:OperatingLocation: n4:availabilities
-key n4:OperatingLocation: n4:country
-key n4:OperatingLocation: n4:elevation
-key n4:OperatingLocation: n4:geodetic
-key n4:OperatingLocation: n4:icao
-key n4:OperatingLocation: n4:inJFACCAreaOfResponsibility
-key n4:OperatingLocation: n4:lastModified
-key n4:OperatingLocation: n4:locationStoreItems
-key n4:OperatingLocation: n4:mobilePosition
-key n4:OperatingLocation: n4:name
-key n4:OperatingLocation: n4:operatingStatus
-key n4:OperatingLocation: n4:runways
-key n4:OperatingLocation: n4:service
-key n4:OperatingLocation: n4:statusValidUntilDateTime
-key n4:OperatingLocation: n4:supportsAirOperations
-key n4:OperatingLocation: n4:weatherColorCode
-done
