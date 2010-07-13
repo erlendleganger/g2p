@@ -1,0 +1,13 @@
+Abbreviations:
+- GTC: Garmin Training Center
+- PPT5: Polar ProTrainer 5
+
+Usage scenarios
+- Run: Come back from run, automatic sync session to GTC, run g2p to
+automatically generate the session and run hrm files into PPT5
+
+
+File names
+- g2p.sh - the main command file to start from Windows, running under bash
+- g2p.pl - the main script, the work horse
+- g2p.ini - configuration settings for g2p.pl
