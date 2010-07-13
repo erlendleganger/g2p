@@ -5,9 +5,12 @@ Abbreviations:
 Usage scenarios
 - Run: Come back from run, automatic sync session to GTC, run g2p to
 automatically generate the session and run hrm files into PPT5
+- Run: Come back from run, sync session into GTC, run g2p to generate hrm
+files for manual import into PPT5.
 
 
 File names
 - g2p.sh - the main command file to start from Windows, running under bash
 - g2p.pl - the main script, the work horse
-- g2p.ini - configuration settings for g2p.pl
+- g2p-ini.sh - configuration settings for g2p.sh
+- g2p-ini.pl - configuration settings for g2p.pl
