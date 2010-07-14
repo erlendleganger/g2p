@@ -1,19 +1,78 @@
 #---------------------------------------------------------------------------
 use strict;
 use XML::Parser::Expat;
+use HTTP::Date;
 use Data::Dumper;
 my $tcxfile="$ENV{TCXFILEINPUT}";
+my $hrmfile="$ENV{HRMFILEOUTPUT}";
 my %db;
 my $currval;
 
 #---------------------------------------------------------------------------
 my %tcxdb;
-my $TotalTimeSeconds;
+my %hrmdb;
+my $AltitudeMeters;
+my $HeartRateBpm;;
+my $DistanceMeters;
 my $Id;
 my $Sport;
 my $StartTime;
+my $Time;
+my $TotalTimeSeconds;
+my $Value;
+my $RunCadence;
+my $Speed;
 
+#---------------------------------------------------------------------------
+#initialise static settings
+my $order=0;
+$hrmdb{Params}{Version}{order}=$order++;
+$hrmdb{Params}{Version}{payload}="106";
+$hrmdb{Params}{Monitor}{order}=$order++;
+$hrmdb{Params}{Monitor}{payload}="12";
+$hrmdb{Params}{SMode}{order}=$order++;
+$hrmdb{Params}{SMode}{payload}="111111100";
+$hrmdb{Params}{Date}{order}=$order++;
+$hrmdb{Params}{Date}{payload}="20100712";
+$hrmdb{Params}{StartTime}{order}=$order++;
+$hrmdb{Params}{StartTime}{payload}="19:05:09.0";
+$hrmdb{Params}{Length}{order}=$order++;
+$hrmdb{Params}{Length}{payload}="01:55:36.0";
+$hrmdb{Params}{Interval}{order}=$order++;
+$hrmdb{Params}{Interval}{payload}="5";
+$hrmdb{Params}{Upper1}{order}=$order++;
+$hrmdb{Params}{Upper1}{payload}="0";
+$hrmdb{Params}{Lower1}{order}=$order++;
+$hrmdb{Params}{Lower1}{payload}="0";
+$hrmdb{Params}{Upper2}{order}=$order++;
+$hrmdb{Params}{Upper2}{payload}="0";
+$hrmdb{Params}{Lower2}{order}=$order++;
+$hrmdb{Params}{Lower2}{payload}="0";
+$hrmdb{Params}{Upper3}{order}=$order++;
+$hrmdb{Params}{Upper3}{payload}="0";
+$hrmdb{Params}{Lower3}{order}=$order++;
+$hrmdb{Params}{Lower3}{payload}="0";
+$hrmdb{Params}{Timer1}{order}=$order++;
+$hrmdb{Params}{Timer1}{payload}="00:00:00.0";
+$hrmdb{Params}{Timer2}{order}=$order++;
+$hrmdb{Params}{Timer2}{payload}="00:00:00.0";
+$hrmdb{Params}{Timer3}{order}=$order++;
+$hrmdb{Params}{Timer3}{payload}="00:00:00.0";
+$hrmdb{Params}{ActiveLimit}{order}=$order++;
+$hrmdb{Params}{ActiveLimit}{payload}="0";
+$hrmdb{Params}{MaxHR}{order}=$order++;
+$hrmdb{Params}{MaxHR}{payload}="190";
+$hrmdb{Params}{RestHR}{order}=$order++;
+$hrmdb{Params}{RestHR}{payload}="60";
+$hrmdb{Params}{StartDelay}{order}=$order++;
+$hrmdb{Params}{StartDelay}{payload}="0";
+$hrmdb{Params}{VO2max}{order}=$order++;
+$hrmdb{Params}{VO2max}{payload}="30";
+$hrmdb{Params}{Weight}{order}=$order++;
+$hrmdb{Params}{Weight}{payload}="97";
 
+#---------------------------------------------------------------------------
+#go through this section for deletion
 my $aircraftType;
 my $fuelType;
 my $combatRadius;
@@ -46,33 +105,32 @@ my $fileAircraftConfiguration="$fileprefix-AircraftConfiguration.txt";
 my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreItem.txt";
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub gen_hrm{
+open HRM,">$hrmfile" or die "cannot create $hrmfile";
+for my $s(qw(Params)){
+   print HRM qq([$s]\n);
+   for my $key(sort{$hrmdb{$s}{$a}{order} <=> $hrmdb{$s}{$b}{order}} 
+               keys %{$hrmdb{$s}}){
+      print HRM qq($key=$hrmdb{$s}{$key}{payload}\n);
+   }
+   print HRM "\n";
+}
+for my $s(qw(Note IntTimes ExtraData Summary-123 Summary-TH
+             HRZones SwapTimes Trip HRData)){
+   print HRM qq([$s]\n);
+   for my $l(@{$hrmdb{$s}}){
+      print HRM "$l\n";
+   }
+   print HRM "\n";
+}
+close HRM;
+}
 
 #---------------------------------------------------------------------------
-#load the initialisation file
-my $cfgfile="$ENV{PLCFGFILE}";
-if(-f $cfgfile){
-   print "loading $cfgfile...\n";
-   require $cfgfile;
-}
-else{
-   die "cannot find $cfgfile";
-}
-
 #---------------------------------------------------------------------------
-#get the cfg db
-my $rcfgdb;
-if(defined &get_cfgdb){
-   $rcfgdb=get_cfgdb();
-}
-else{
-   die "cannot get cfgdb";
-}
-#print Dumper(%$rcfgdb);
-#print "$$rcfgdb{USER}{NAME}\n";
-#print "premature\n";exit 1;
-
-#---------------------------------------------------------------------------
-
+sub parse_tcxfile{
 #---------------------------------------------------------------------------
 #create parser object which is namespace-aware
 my $parser = new XML::Parser::Expat('Namespaces' =>1);
@@ -101,6 +159,9 @@ close(TCX);
 #dump datastructure for debugging
 print Dumper(%tcxdb);
 
+#---------------------------------------------------------------------------
+} #sub parse_tcxfile
+
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
@@ -120,7 +181,7 @@ sub start_element{
       $Sport=$atts{Sport};
    }
    elsif($el eq "Lap"){
-      $StartTime=$atts{StartTime};
+      $StartTime=str2time($atts{StartTime});
    }
    #print "start_element: el=$el\n";
 }
@@ -138,8 +199,52 @@ sub end_element{
       $tcxdb{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
       print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
    }
+   elsif($el eq "Trackpoint"){
+      print "TrackPoint completed: Time=$Time\n";
+      if("$DistanceMeters"){
+         $tcxdb{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
+         $DistanceMeters="";
+      }
+      if("$Speed"){
+         $tcxdb{$Id}{Trackpoint}{$Time}{Speed}=$Speed;
+         $Speed="";
+      }
+      if("$RunCadence"){
+         $tcxdb{$Id}{Trackpoint}{$Time}{RunCadence}=$RunCadence;
+         $RunCadence="";
+      }
+      if("$HeartRateBpm"){
+         $tcxdb{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$HeartRateBpm;
+         $HeartRateBpm="";
+      }
+      if("$AltitudeMeters"){
+         $tcxdb{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$AltitudeMeters;
+         $AltitudeMeters="";
+      }
+   }
    elsif($el eq "Id"){
       $Id=$currval;
+   }
+   elsif($el eq "Time"){
+      $Time=str2time($currval);
+   }
+   elsif($el eq "HeartRateBpm"){
+      $HeartRateBpm=$Value;
+   }
+   elsif($el eq "Value"){
+      $Value=$currval;
+   }
+   elsif($el eq "Speed"){
+      $Speed=$currval;
+   }
+   elsif($el eq "RunCadence"){
+      $RunCadence=$currval;
+   }
+   elsif($el eq "DistanceMeters"){
+      $DistanceMeters=$currval;
+   }
+   elsif($el eq "AltitudeMeters"){
+      $AltitudeMeters=$currval;
    }
    elsif($el eq "TotalTimeSeconds"){
       $TotalTimeSeconds=$currval;
@@ -147,132 +252,40 @@ sub end_element{
 }
 
 #---------------------------------------------------------------------------
+#main code starts here
+
 #---------------------------------------------------------------------------
-sub cwid_start_element{
-  my ($p, $el, %atts) = @_;
-  if($el eq "AircraftModel"){
-     1;
-  }
+#load the initialisation file
+my $cfgfile="$ENV{PLCFGFILE}";
+if(-f $cfgfile){
+   print "loading $cfgfile...\n";
+   require $cfgfile;
+}
+else{
+   die "cannot find $cfgfile";
 }
 
 #---------------------------------------------------------------------------
+#get the cfg db
+my $rcfgdb;
+if(defined &get_cfgdb){
+   $rcfgdb=get_cfgdb();
+}
+else{
+   die "cannot get cfgdb";
+}
+#print Dumper(%$rcfgdb);
+#print "$$rcfgdb{USER}{NAME}\n";
+#print "premature\n";exit 1;
+
 #---------------------------------------------------------------------------
-sub cwid_end_element{
-   my ($p, $el) = @_;
-   if($el eq "AircraftModel"){
+#populate from cfgdb
+@{$hrmdb{HRZones}}=@{$$rcfgdb{USER}{HRZONES}};
+@{$hrmdb{Trip}}=@{$$rcfgdb{USER}{TRIP}};
+@{$hrmdb{Note}}=("This section is not used");
 
-      #---------------------------------------------------------------------
-      #pick up values for this aircraft model
-      $AircraftModel{$aircraftType}{"fuelType"}=$fuelType;
-      $AircraftModel{$aircraftType}{"combatRadius"}=$combatRadius;
+#---------------------------------------------------------------------------
+parse_tcxfile();
 
-      #---------------------------------------------------------------------
-      #copy the found aircraft configurations for this aircraft model
-      for(keys %AircraftConfiguration){
-         $AircraftModel{$aircraftType}{"AircraftConfigurations"}{$_}=
-            \%{$AircraftConfiguration{$_}};
-      }
-
-      #---------------------------------------------------------------------
-      #empty the configuration hash for the next aircraft model
-      %AircraftConfiguration=();
-   }
-   elsif($el eq "aircraftType"){
-      $aircraftType=$currval;
-   }
-   elsif($el eq "fuelType"){
-      $fuelType=$currval;
-   }
-   elsif($el eq "combatRadius"){
-      $combatRadius=$currval;
-   }
-   elsif($el eq "AircraftConfiguration"){
-      $AircraftConfiguration{$configurationId}{"actionRadius"}=$actionRadius;
-      $AircraftConfiguration{$configurationId}{"externalFuelWeightCapacity"}=$externalFuelWeightCapacity;
-
-      #---------------------------------------------------------------------
-      #copy the found store items for this aircraft configuration
-      for(keys %AircraftConfigurationStoreItem){
-         #print "$configurationId, key=$_\n";
-         $AircraftConfiguration{$configurationId}{"AircraftConfigurationStoreItem"}{$_}=\%{$AircraftConfigurationStoreItem{$_}};
-      }
-
-      #---------------------------------------------------------------------
-      #empty the store item hash for the next aircraft configuration
-      %AircraftConfigurationStoreItem=();
-   }
-   elsif($el eq "aircraftType"){
-      $aircraftType=$currval;
-   }
-   elsif($el eq "fuelType"){
-      $fuelType=$currval;
-   }
-   elsif($el eq "combatRadius"){
-      $combatRadius=$currval;
-   }
-   elsif($el eq "AircraftConfiguration"){
-      $AircraftConfiguration{$configurationId}{"actionRadius"}=$actionRadius;
-      $AircraftConfiguration{$configurationId}{"externalFuelWeightCapacity"}=$externalFuelWeightCapacity;
-      
-   }
-   elsif($el eq "configurationId"){
-      $configurationId=$currval;
-   }
-   elsif($el eq "actionRadius"){
-      $actionRadius=$currval;
-   }
-   elsif($el eq "externalFuelWeightCapacity"){
-      $externalFuelWeightCapacity=$currval;
-   }
-   elsif($el eq "AircraftConfigurationStoreItem"){
-      $AircraftConfigurationStoreItem{$storeItemCode}{"itemQuantity"}=$itemQuantity;
-   }      
-   elsif($el eq "storeItemCode"){
-      $storeItemCode=$currval;
-   }
-   elsif($el eq "itemQuantity"){
-      $itemQuantity=$currval;
-   }
-   elsif($el eq "OperatingLocation"){
-      $OperatingLocation{$icao}{"name"}=$name;
-      $OperatingLocation{$icao}{"elevation"}=$elevation;
-      $OperatingLocation{$icao}{"weatherColorCode"}=$weatherColorCode;
-      if(defined %geodetic){
-         for(keys %geodetic){
-            $OperatingLocation{$icao}{"geodetic"}{$_}=$geodetic{$_};
-         }
-         %geodetic=();
-      }
-   }
-   elsif($el eq "name"){
-      $name=$currval;
-   }
-   elsif($el eq "weatherColorCode"){
-      $weatherColorCode=$currval;
-   }
-   elsif($el eq "elevation"){
-      $elevation=$currval;
-   }
-   elsif($el eq "icao"){
-      $icao=$currval;
-      #print "icao, namespace: ",$parser->namespace($el),"\n";
-   }
-   elsif($el eq "geodetic"){
-      $geodetic{"datum"}=$datum;
-      $geodetic{"height"}=$height;
-      $geodetic{"longitude"}=$longitude;
-      $geodetic{"latitude"}=$latitude;
-   }
-   elsif($el eq "datum"){
-      $datum=$currval;
-   }
-   elsif($el eq "height"){
-      $height=$currval;
-   }
-   elsif($el eq "latitude"){
-      $latitude=$currval;
-   }
-   elsif($el eq "longitude"){
-      $longitude=$currval;
-   }
-}  
+#---------------------------------------------------------------------------
+gen_hrm();

@@ -1,11 +1,14 @@
 #!/bin/bash
 #---------------------------------------------------------------------------
-export BASEDIR=$(cd $(dirname $0);pwd)
+export BINDIR=$(cd $(dirname $0);pwd)
 export BASENAME=$(echo $(basename $0)|sed "s/\..*//")
-export PLCFGFILE=$BASEDIR/$BASENAME-ini.pl
-export SHCFGFILE=$BASEDIR/$BASENAME-ini.sh
-export PLFILE=$BASEDIR/$BASENAME.pl
-#echo BASEDIR=$BASEDIR
+export PLCFGFILE=$BINDIR/$BASENAME-ini.pl
+export SHCFGFILE=$BINDIR/$BASENAME-ini.sh
+export PLFILE=$BINDIR/$BASENAME.pl
+export OUTDIR=$(cd $(dirname $0)/..;pwd)/tmp
+export HRMFILEOUTPUT=$OUTDIR/gen-0.hrm
+#echo BINDIR=$BINDIR
+echo OUTDIR=$OUTDIR
 #echo PLCFGFILE=$PLCFGFILE
 #echo SHCFGFILE=$SHCFGFILE
 #echo BASENAME=$BASENAME
