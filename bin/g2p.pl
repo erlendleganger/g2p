@@ -3,7 +3,8 @@ use strict;
 use XML::Parser::Expat;
 use HTTP::Date;
 use Data::Dumper;
-my $tcxfile="$ENV{TCXFILEINPUT}";
+my $tcxfilein="$ENV{TCXFILEINPUT}";
+my $tcxfileout="$ENV{TCXFILEOUTPUT}";
 my $hrmfile="$ENV{HRMFILEOUTPUT}";
 my %db;
 my $currval;
@@ -12,16 +13,25 @@ my $currval;
 my %tcxdb;
 my %hrmdb;
 my $AltitudeMeters;
-my $HeartRateBpm;;
+my $BuildMajor;
+my $BuildMinor;
+my $Builder;
 my $DistanceMeters;
+my $HeartRateBpm;;
 my $Id;
+my $LangID;
+my $Name;
+my $PartNumber;
+my $RunCadence;
+my $Speed;
 my $Sport;
 my $StartTime;
 my $Time;
 my $TotalTimeSeconds;
+my $Type;
 my $Value;
-my $RunCadence;
-my $Speed;
+my $VersionMajor;
+my $VersionMinor;
 
 #---------------------------------------------------------------------------
 #initialise static settings
@@ -106,8 +116,51 @@ my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreIt
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 
 #---------------------------------------------------------------------------
+#tbd - using xml::parser is not optimal for generating xml file, because
+#you need to manually get all the values and output as xml.
 #---------------------------------------------------------------------------
-sub gen_hrm{
+sub gen_tcxfile{
+open TCX,">$tcxfileout" or die "cannot create $tcxfileout";
+print TCX<<EOT
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<TrainingCenterDatabase
+xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.garmin.com/xmlschemas/ActivityExtension/v2
+http://www.garmin.com/xmlschemas/ActivityExtensionv2.xsd
+http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2
+http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
+EOT
+;
+print TCX "<Activities>\n";
+print TCX "</Activities>\n";
+print TCX <<EOT;
+ <Author xsi:type="Application_t">
+    <Name>$tcxdb{Author}{Name}</Name>
+    <Build>
+      <Version>
+        <VersionMajor>$tcxdb{Author}{Build}{Version}{VersionMajor}</VersionMajor>
+        <VersionMinor>$tcxdb{Author}{Build}{Version}{VersionMinor}</VersionMinor>
+        <BuildMajor>$tcxdb{Author}{Build}{Version}{BuildMajor}</BuildMajor>
+        <BuildMinor>$tcxdb{Author}{Build}{Version}{BuildMinor}</BuildMinor>
+      </Version>
+      <Type>$tcxdb{Author}{Build}{Type}</Type>
+      <Time>$tcxdb{Author}{Build}{Time}</Time>
+      <Builder>$tcxdb{Author}{Build}{Builder}</Builder>
+    </Build>
+    <LangID>$tcxdb{Author}{LangID}</LangID>
+    <PartNumber>$tcxdb{Author}{PartNumber}</PartNumber>
+  </Author>
+EOT
+;
+print TCX "</Author>\n";
+print TCX "</TrainingCenterDatabase>\n";
+close TCX;
+}
+
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub gen_hrmfile{
 open HRM,">$hrmfile" or die "cannot create $hrmfile";
 for my $s(qw(Params)){
    print HRM qq([$s]\n);
@@ -144,14 +197,14 @@ $parser->setHandlers('Start' => \&start_element,
 
 #---------------------------------------------------------------------------
 #get
-#my ($yy,$mm,$dd,$tt,$rest)=split/-/,$tcxfile;
+#my ($yy,$mm,$dd,$tt,$rest)=split/-/,$tcxfilein;
 #print "yy=$yy, mm=$mm, dd=$dd\n";
 #print "premature\n";exit 1;
 
 #---------------------------------------------------------------------------
 #parse the tcx file
-open TCX,"<$tcxfile" or die "cannot open $tcxfile";
-print "parsing $tcxfile...\n";
+open TCX,"<$tcxfilein" or die "cannot open $tcxfilein";
+print "parsing $tcxfilein...\n";
 $parser->parse(*TCX);
 close(TCX);
 
@@ -193,34 +246,86 @@ sub end_element{
    #print "end_element: el=$el\n";
    if($el eq "Activity"){
       print "Activity completed: Sport=$Sport, Id=$Id\n";
-      $tcxdb{$Id}{Sport}=$Sport;
+      $tcxdb{Activity}{$Id}{Sport}=$Sport;
    }
    elsif($el eq "Lap"){
-      $tcxdb{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
+      $tcxdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
       print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
    }
    elsif($el eq "Trackpoint"){
       print "TrackPoint completed: Time=$Time\n";
       if("$DistanceMeters"){
-         $tcxdb{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
+         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
          $DistanceMeters="";
       }
       if("$Speed"){
-         $tcxdb{$Id}{Trackpoint}{$Time}{Speed}=$Speed;
+         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$Speed;
          $Speed="";
       }
       if("$RunCadence"){
-         $tcxdb{$Id}{Trackpoint}{$Time}{RunCadence}=$RunCadence;
+         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$RunCadence;
          $RunCadence="";
       }
       if("$HeartRateBpm"){
-         $tcxdb{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$HeartRateBpm;
+         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$HeartRateBpm;
          $HeartRateBpm="";
       }
       if("$AltitudeMeters"){
-         $tcxdb{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$AltitudeMeters;
+         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$AltitudeMeters;
          $AltitudeMeters="";
       }
+   }
+   elsif($el eq "Name"){
+      $Name=$currval;
+   }
+   elsif($el eq "Type"){
+      $Type=$currval;
+   }
+   elsif($el eq "Time"){
+      $Time=$currval;
+   }
+   elsif($el eq "Builder"){
+      $Builder=$currval;
+   }
+   elsif($el eq "LangID"){
+      $LangID=$currval;
+   }
+   elsif($el eq "PartNumber"){
+      $PartNumber=$currval;
+   }
+   elsif($el eq "VersionMajor"){
+      $VersionMajor=$currval;
+   }
+   elsif($el eq "VersionMinor"){
+      $VersionMinor=$currval;
+   }
+   elsif($el eq "BuildMajor"){
+      $BuildMajor=$currval;
+   }
+   elsif($el eq "BuildMinor"){
+      $BuildMinor=$currval;
+   }
+   elsif($el eq "Version"){
+      $tcxdb{Author}{Build}{Version}{VersionMajor}=$VersionMajor;
+      $tcxdb{Author}{Build}{Version}{VersionMinor}=$VersionMinor;
+      $tcxdb{Author}{Build}{Version}{BuildMajor}=$BuildMajor;
+      $tcxdb{Author}{Build}{Version}{BuildMinor}=$BuildMinor;
+   }
+   elsif($el eq "Build"){
+      $tcxdb{Author}{Build}{Type}=$Type;
+      $tcxdb{Author}{Build}{Time}=$Time;
+      $tcxdb{Author}{Build}{Builder}=$Builder;
+   }
+   elsif($el eq "Author"){
+      $tcxdb{Author}{Name}=$Name;
+      $tcxdb{Author}{LangID}=$LangID;
+      $tcxdb{Author}{PartNumber}=$PartNumber;
+   }
+   elsif($el eq "Id"){
+      $Id=$currval;
+   }
+   elsif($el eq "Id"){
+      $Id=$currval;
    }
    elsif($el eq "Id"){
       $Id=$currval;
@@ -258,13 +363,13 @@ sub end_element{
 #load the initialisation file
 my $cfgfile="$ENV{PLCFGFILE}";
 if(-f $cfgfile){
-   print "loading $cfgfile...\n";
+  print "loading $cfgfile...\n";
    require $cfgfile;
 }
 else{
    die "cannot find $cfgfile";
 }
-
+ 
 #---------------------------------------------------------------------------
 #get the cfg db
 my $rcfgdb;
@@ -288,4 +393,7 @@ else{
 parse_tcxfile();
 
 #---------------------------------------------------------------------------
-gen_hrm();
+gen_tcxfile();
+
+#---------------------------------------------------------------------------
+gen_hrmfile();
