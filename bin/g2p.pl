@@ -3,6 +3,7 @@ use strict;
 use XML::Parser::Expat;
 use HTTP::Date;
 use Data::Dumper;
+$Data::Dumper::Indent = 1;
 my $tcxfilein="$ENV{TCXFILEINPUT}";
 my $tcxfileout="$ENV{TCXFILEOUTPUT}";
 my $hrmfile="$ENV{HRMFILEOUTPUT}";
@@ -115,6 +116,88 @@ my $fileAircraftConfiguration="$fileprefix-AircraftConfiguration.txt";
 my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreItem.txt";
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 
+sub mydump{
+my $key=shift;
+print "start: dump $key\n";
+for $Time(sort keys %{$tcxdb{Activity}{$Id}{Trackpoint}}){
+   print "Time=$Time, $key=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}\n";
+}
+print "end: dump $key\n";
+}
+
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub smooth{
+   for $Id(sort keys %{$tcxdb{Activity}}){
+      print "Id=$Id\n";
+      #get start and end time
+      my $t_start=1e20;
+      my $t_end=-1;
+      for $Time(keys %{$tcxdb{Activity}{$Id}{Trackpoint}}){
+         $t_start=$Time if($t_start>$Time);
+         $t_end=$Time if($t_end<$Time);
+      }
+      print "t_start=$t_start\n";
+      print "t_end=$t_end\n";
+      print "diff=",$t_end-$t_start,"\n";
+      for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
+
+	 mydump($key);
+         #------------------------------------------------------------------
+	 #make sure first trackpoint has a value for this key
+	 $Time=$t_start;
+         while(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
+	 my $v_start=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 #print "key=$key, Time=$Time, v_start=$v_start\n";
+	 while(--$Time ge $t_start){
+	    print "start: setting $key=$v_start for Time=$Time\n";
+	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
+	 }
+	 mydump($key);
+
+         #------------------------------------------------------------------
+	 #make sure last trackpoint has a value for this key
+	 $Time=$t_end;
+         while(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
+	 my $v_end=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 #print "key=$key, Time=$Time, v_end=$v_end\n";
+	 while(++$Time le $t_end){
+	    print "end: setting $key=$v_end for Time=$Time\n";
+	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
+	 }
+	 mydump($key);
+         
+         #------------------------------------------------------------------
+	 my $t_missing="";
+	 $Time=$t_start;
+         while($Time<=$t_end){
+            if(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
+	       $t_missing=$Time;
+	       $Time++;
+               while(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
+	          $Time++;
+               }
+               $v_start=$tcxdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
+               $v_end=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	       print "key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n";
+	      for(my $t=0;$t<$Time-$t_missing;$t++){
+	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
+                 $tcxdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
+	      }
+	    }
+	    else{
+	       $Time++;
+	    }
+            #print "Time=$Time\n" if($Time eq $t_start);
+            #print "Time=$Time\n" if($Time eq $t_end);
+         }
+	 mydump($key);
+      }
+   }
+   print Dumper(%{$tcxdb{Activity}});
+   #for $Id(keys %{$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
+}
+         
 #---------------------------------------------------------------------------
 #tbd - using xml::parser is not optimal for generating xml file, because
 #you need to manually get all the values and output as xml.
@@ -210,7 +293,7 @@ close(TCX);
 
 #---------------------------------------------------------------------------
 #dump datastructure for debugging
-print Dumper(%tcxdb);
+#print Dumper(%tcxdb);
 
 #---------------------------------------------------------------------------
 } #sub parse_tcxfile
@@ -245,15 +328,20 @@ sub end_element{
    my ($p, $el) = @_;
    #print "end_element: el=$el\n";
    if($el eq "Activity"){
-      print "Activity completed: Sport=$Sport, Id=$Id\n";
+      #print "Activity completed: Sport=$Sport, Id=$Id\n";
       $tcxdb{Activity}{$Id}{Sport}=$Sport;
    }
    elsif($el eq "Lap"){
+      #print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
       $tcxdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
-      print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
    }
    elsif($el eq "Trackpoint"){
-      print "TrackPoint completed: Time=$Time\n";
+      #print "Trackpoint completed: Time=$Time\n";
+      $Time=str2time($Time);
+      if(!$Time){
+         print "Warning: error converting Time - skipping\n";
+	 return;
+      }
       if("$DistanceMeters"){
          $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
          $DistanceMeters="";
@@ -397,3 +485,6 @@ gen_tcxfile();
 
 #---------------------------------------------------------------------------
 gen_hrmfile();
+
+#---------------------------------------------------------------------------
+smooth();
