@@ -50,7 +50,7 @@ $hrmdb{Params}{StartTime}{payload}="19:05:09.0";
 $hrmdb{Params}{Length}{order}=$order++;
 $hrmdb{Params}{Length}{payload}="01:55:36.0";
 $hrmdb{Params}{Interval}{order}=$order++;
-$hrmdb{Params}{Interval}{payload}="5";
+$hrmdb{Params}{Interval}{payload}="1";
 $hrmdb{Params}{Upper1}{order}=$order++;
 $hrmdb{Params}{Upper1}{payload}="0";
 $hrmdb{Params}{Lower1}{order}=$order++;
@@ -117,10 +117,11 @@ my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreIt
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 
 sub mydump{
+my $id=shift;
 my $key=shift;
 print "start: dump $key\n";
-for $Time(sort keys %{$tcxdb{Activity}{$Id}{Trackpoint}}){
-   print "Time=$Time, $key=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}\n";
+for $Time(sort keys %{$tcxdb{Activity}{$id}{Trackpoint}}){
+   print "Time=$Time, $key=$tcxdb{Activity}{$id}{Trackpoint}{$Time}{$key}\n";
 }
 print "end: dump $key\n";
 }
@@ -142,7 +143,7 @@ sub smooth{
       print "diff=",$t_end-$t_start,"\n";
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
-	 mydump($key);
+	 #mydump($Id,$key);
          #------------------------------------------------------------------
 	 #make sure first trackpoint has a value for this key
 	 $Time=$t_start;
@@ -153,7 +154,7 @@ sub smooth{
 	    print "start: setting $key=$v_start for Time=$Time\n";
 	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
 	 }
-	 mydump($key);
+	 #mydump($Id,$key);
 
          #------------------------------------------------------------------
 	 #make sure last trackpoint has a value for this key
@@ -165,7 +166,7 @@ sub smooth{
 	    print "end: setting $key=$v_end for Time=$Time\n";
 	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
 	 }
-	 mydump($key);
+	 #mydump($Id,$key);
          
          #------------------------------------------------------------------
 	 my $t_missing="";
@@ -179,7 +180,7 @@ sub smooth{
                }
                $v_start=$tcxdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
                $v_end=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	       print "key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n";
+	       #print "key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n";
 	      for(my $t=0;$t<$Time-$t_missing;$t++){
 	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
                  $tcxdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
@@ -191,13 +192,29 @@ sub smooth{
             #print "Time=$Time\n" if($Time eq $t_start);
             #print "Time=$Time\n" if($Time eq $t_end);
          }
-	 mydump($key);
+	 #mydump($Id,$key);
       }
    }
-   print Dumper(%{$tcxdb{Activity}});
+   #print Dumper(%{$tcxdb{Activity}});
    #for $Id(keys %{$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
 }
          
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub populate_hrmdb{
+for $Id(sort keys %{$tcxdb{Activity}}){
+   print "populate_hrmdb: Id=$Id\n";
+   #mydump($Id,"HeartRateBpm");
+   for $Time(sort keys %{$tcxdb{Activity}{$Id}{Trackpoint}}){
+      my $hr=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm};
+      my $speed=int 0.5+36*$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed};
+      my $cadence=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence};
+      my $altitude=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
+      push @{$hrmdb{HRData}},"$hr\t$speed\t$cadence\t$altitude"; 
+   }
+}
+}
+
 #---------------------------------------------------------------------------
 #tbd - using xml::parser is not optimal for generating xml file, because
 #you need to manually get all the values and output as xml.
@@ -481,10 +498,13 @@ else{
 parse_tcxfile();
 
 #---------------------------------------------------------------------------
-gen_tcxfile();
-
-#---------------------------------------------------------------------------
-gen_hrmfile();
+#gen_tcxfile();
 
 #---------------------------------------------------------------------------
 smooth();
+
+#---------------------------------------------------------------------------
+populate_hrmdb();
+
+#---------------------------------------------------------------------------
+gen_hrmfile();
