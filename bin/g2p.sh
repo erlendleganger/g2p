@@ -7,6 +7,7 @@ export SHCFGFILE=$BINDIR/$BASENAME-ini.sh
 export PLFILE=$BINDIR/$BASENAME.pl
 export OUTDIR=$(cd $(dirname $0)/..;pwd)/tmp
 export HRMFILEOUTPUT=$OUTDIR/gen-0.hrm
+export TCXFILEOUTPUT=$OUTDIR/gen-0.tcx
 #echo BINDIR=$BINDIR
 echo OUTDIR=$OUTDIR
 #echo PLCFGFILE=$PLCFGFILE
