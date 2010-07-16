@@ -3,6 +3,7 @@ use strict;
 use XML::Parser::Expat;
 use HTTP::Date;
 use Data::Dumper;
+use POSIX qw{strftime}; 
 $Data::Dumper::Indent = 1;
 my $tcxfilein="$ENV{TCXFILEINPUT}";
 my $tcxfileout="$ENV{TCXFILEOUTPUT}";
@@ -44,11 +45,11 @@ $hrmdb{Params}{Monitor}{payload}="12";
 $hrmdb{Params}{SMode}{order}=$order++;
 $hrmdb{Params}{SMode}{payload}="111111100";
 $hrmdb{Params}{Date}{order}=$order++;
-$hrmdb{Params}{Date}{payload}="20100712";
+#$hrmdb{Params}{Date}{payload}="20100712";
 $hrmdb{Params}{StartTime}{order}=$order++;
 $hrmdb{Params}{StartTime}{payload}="19:05:09.0";
 $hrmdb{Params}{Length}{order}=$order++;
-$hrmdb{Params}{Length}{payload}="01:55:36.0";
+#$hrmdb{Params}{Length}{payload}="01:55:36.0";
 $hrmdb{Params}{Interval}{order}=$order++;
 $hrmdb{Params}{Interval}{payload}="1";
 $hrmdb{Params}{Upper1}{order}=$order++;
@@ -212,6 +213,19 @@ for $Id(sort keys %{$tcxdb{Activity}}){
       my $altitude=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
       push @{$hrmdb{HRData}},"$hr\t$speed\t$cadence\t$altitude"; 
    }
+
+   #$tcxdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
+   my $totaltime;
+   my $firstlapstarttime;
+   for $Time(sort keys %{$tcxdb{Activity}{$Id}{Lap}}){
+      $firstlapstarttime=$Time if(!$firstlapstarttime);
+      print "lap start: $Time\n";
+      $totaltime+=$tcxdb{Activity}{$Id}{Lap}{$Time}{TotalTimeSeconds};
+   }
+   $hrmdb{Params}{Length}{payload}=strftime("\%H:\%M:\%S.0", localtime($totaltime));
+   $hrmdb{Params}{Date}{payload}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
+   $hrmdb{Params}{StartTime}{payload}=strftime("\%H:\%M:\%S.0", localtime($firstlapstarttime));
+   #print "Date: ",strftime("\%Y-\%m-\%d", gmtime($firstlapstarttime)),"\n";
 }
 }
 
