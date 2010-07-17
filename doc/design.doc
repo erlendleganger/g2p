@@ -1,12 +1,25 @@
 Abbreviations:
 - GTC: Garmin Training Center
 - PPT5: Polar ProTrainer 5
+- PDD: Polar Daily Data
+- HRM: Heart Rate Monitor
+- PWD: Polar Weekly Data
 
 Usage scenarios
 - Run: Come back from run, automatic sync session to GTC, run g2p to
 automatically generate the session and run hrm files into PPT5
 - Run: Come back from run, sync session into GTC, run g2p to generate hrm
 files for manual import into PPT5.
+- After a workout on trainer, bike or run: 
+   - Either: Autosync 310XT with GTC,
+   - Or: Connect Edge 500 to USB,
+   - Or: Export trainer session from Tacx software
+   - Run g2p.sh (dclick a shortcut to it?)
+   - For each new file in one of the locaions above:
+      - Show which file is found
+      - Prompt for comment
+      - Copy HRM file in place
+      - Merge data into PDD file
 
 
 File names
