@@ -5,19 +5,21 @@ use HTTP::Date;
 use Data::Dumper;
 use POSIX qw{strftime}; 
 $Data::Dumper::Indent = 1;
-my $tcxfilein="$ENV{TCXFILEINPUT}";
-my $tcxfileout="$ENV{TCXFILEOUTPUT}";
 my %db;
 my $currval;
+my $l="-"x72 ."\n";
 
 #---------------------------------------------------------------------------
 my %tcxdb;
 my %hrmdb;
+my %pddb;
+my $inTrack;
 my $AltitudeMeters;
 my $BuildMajor;
 my $BuildMinor;
 my $Builder;
 my $DistanceMeters;
+my $LapDistanceMeters;
 my $HeartRateBpm;;
 my $Id;
 my $LangID;
@@ -130,7 +132,7 @@ print "end: dump $key\n";
 #---------------------------------------------------------------------------
 sub smooth{
    for $Id(sort keys %{$tcxdb{Activity}}){
-      print "Id=$Id\n";
+      #print "Id=$Id\n";
       #get start and end time
       my $t_start=1e20;
       my $t_end=-1;
@@ -138,9 +140,9 @@ sub smooth{
          $t_start=$Time if($t_start>$Time);
          $t_end=$Time if($t_end<$Time);
       }
-      print "t_start=$t_start\n";
-      print "t_end=$t_end\n";
-      print "diff=",$t_end-$t_start,"\n";
+      #print "t_start=$t_start\n";
+      #print "t_end=$t_end\n";
+      #print "diff=",$t_end-$t_start,"\n";
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
 	 #mydump($Id,$key);
@@ -151,7 +153,7 @@ sub smooth{
 	 my $v_start=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
 	 #print "key=$key, Time=$Time, v_start=$v_start\n";
 	 while(--$Time ge $t_start){
-	    print "start: setting $key=$v_start for Time=$Time\n";
+	    #print "start: setting $key=$v_start for Time=$Time\n";
 	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
 	 }
 	 #mydump($Id,$key);
@@ -163,7 +165,7 @@ sub smooth{
 	 my $v_end=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
 	 #print "key=$key, Time=$Time, v_end=$v_end\n";
 	 while(++$Time le $t_end){
-	    print "end: setting $key=$v_end for Time=$Time\n";
+	    #print "end: setting $key=$v_end for Time=$Time\n";
 	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
 	 }
 	 #mydump($Id,$key);
@@ -203,7 +205,7 @@ sub smooth{
 #---------------------------------------------------------------------------
 sub populate_hrmdb{
 for $Id(sort keys %{$tcxdb{Activity}}){
-   print "populate_hrmdb: Id=$Id\n";
+   #print "populate_hrmdb: Id=$Id\n";
 
    #------------------------------------------------------------------------
    #populate the HRData section of the hrm structure
@@ -219,13 +221,16 @@ for $Id(sort keys %{$tcxdb{Activity}}){
    #------------------------------------------------------------------------
    #populate IntTimes section and some of the Param section in the hrm structure
    my $totaltime;
+   my $totaldistance;
    my $firstlapstarttime;
    for $Time(sort keys %{$tcxdb{Activity}{$Id}{Lap}}){
       $firstlapstarttime=$Time if(!$firstlapstarttime);
       my $laptime=$tcxdb{Activity}{$Id}{Lap}{$Time}{TotalTimeSeconds};
+      my $lapdistance=$tcxdb{Activity}{$Id}{Lap}{$Time}{DistanceMeters};
       $totaltime+=$laptime;
+      $totaldistance+=$lapdistance;
       my $laptimestr=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
-      print "lap start: $Time, lap time: $laptime\n";
+      #print "lap start: $Time, lap time: $laptime\n";
       push @{$hrmdb{IntTimes}},"$laptimestr\t0\t0\t0\t0";
       push @{$hrmdb{IntTimes}},"0\t0\t0\t0\t0";
       push @{$hrmdb{IntTimes}},"0\t0\t0\t0\t0";
@@ -237,12 +242,24 @@ for $Id(sort keys %{$tcxdb{Activity}}){
    $hrmdb{Params}{Length}{payload}=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
    $hrmdb{Params}{Date}{payload}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
    $hrmdb{Params}{StartTime}{payload}=strftime("\%H:\%M:\%S.0", localtime($firstlapstarttime));
-   $hrmdb{HRMFILE}=strftime("\%g\%m\%d01.hrm", localtime($firstlapstarttime));
+   $hrmdb{DISTANCE}=$totaldistance;
+   $hrmdb{STARTTIME}=$firstlapstarttime;
+   #$hrmdb{HRMFILE}=strftime("\%g\%m\%d01.hrm", localtime($firstlapstarttime));
    $hrmdb{PDDFILE}=strftime("\%Y\%m\%d.pdd", localtime($firstlapstarttime));
    $hrmdb{DTG0}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
    $hrmdb{DTG1}=strftime("\%Y-\%m-\%d", localtime($firstlapstarttime));
    $hrmdb{DTG2}=strftime("\%Y-\%m-\%d \%H:\%M:\%S", localtime($firstlapstarttime));
 }
+}
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub showsummary_hrmdb{
+print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
+print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
+print  "Duration: $hrmdb{Params}{Length}{payload}\n";
+printf "Distance: %3.1fkm\n", $hrmdb{DISTANCE}/1000.0;
+print  "Comment.: ";
+   $hrmdb{MSG}=<STDIN>;
 }
 
 #---------------------------------------------------------------------------
@@ -250,6 +267,10 @@ for $Id(sort keys %{$tcxdb{Activity}}){
 #you need to manually get all the values and output as xml.
 #---------------------------------------------------------------------------
 sub gen_tcxfile{
+
+my $tcxfileout="/tmp/out.tcx";
+
+#---------------------------------------------------------------------------
 open TCX,">$tcxfileout" or die "cannot create $tcxfileout";
 print TCX<<EOT
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
@@ -291,8 +312,19 @@ close TCX;
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub gen_hrmfile{
-my $hrmfile="$ENV{OUTDIR}/$hrmdb{HRMFILE}";
-open HRM,">$hrmfile" or die "cannot create $hrmfile";
+#---------------------------------------------------------------------------
+
+my $dtg=strftime("\%g\%m\%d", localtime($hrmdb{STARTTIME}));
+#my $hrmfile="$ENV{POLARDIR}/$hrmdb{HRMFILE}";
+my $hrmfile="${dtg}01.hrm";
+#for(my $i=1;$hrmfile=sprintf "$dtg%02d.hrm", $i && -f "$ENV{POLARDIR}/$hrmfile;$i++);
+my $i=2;
+while(-f "$ENV{POLARDIR}/$hrmfile"){
+   $hrmfile=sprintf "$dtg%02d.hrm", $i++;
+}
+print "hrmfile=$hrmfile\n";
+$hrmdb{HRMFILE}=$hrmfile;
+open HRM,">$ENV{POLARDIR}/$hrmfile" or die "cannot create $hrmfile";
 for my $s(qw(Params)){
    print HRM qq([$s]\n);
    for my $key(sort{$hrmdb{$s}{$a}{order} <=> $hrmdb{$s}{$b}{order}} 
@@ -309,17 +341,46 @@ for my $s(qw(Note IntTimes ExtraData Summary-123 Summary-TH
    }
    print HRM "\n";
 }
+
 close HRM;
 }
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub gen_pddfile{
-my $pddfile="$ENV{OUTDIR}/$hrmdb{PDDFILE}";
+my $pddfile="$ENV{POLARDIR}/$hrmdb{PDDFILE}";
 open PDD,">$pddfile" or die "cannot create $pddfile";
-print PDD<<EOT
-[DayInfo]
-100\t1\t7\t6\t1\t512
+for my $s(qw(DayInfo), sort @{$pddb{EXERCISEINFOLIST}}){
+   print PDD qq([$s]\n);
+   for my $l(@{$pddb{$s}}){
+      print PDD "$l\n";
+   }
+   print PDD "\n";
+}
+close PDD;
+}
+
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub populate_pddb{
+my $pddfile="$ENV{POLARDIR}/$hrmdb{PDDFILE}";
+if(-f $pddfile){
+   open PDD,"<$pddfile" or die "cannot open $pddfile";
+   my $section;
+   while(<PDD>){
+      chomp;
+      if(m/\[(.*)\]/){
+         $section=$1;
+         push @{$pddb{EXERCISEINFOLIST}},$section if($section=~m/ExerciseInfo/);
+      }
+      else{
+         push @{$pddb{$section}},$_ if ($section);
+      }
+   }
+   close PDD;
+}
+if(!defined $pddb{DayInfo}){
+push @{$pddb{DayInfo}},qq(100\t1\t7\t6\t1\t512
 $hrmdb{DTG0}\t0\t0\t0\t0\t0
 0\t0\t0\t0\t0\t0
 0\t0\t0\t0\t0\t0
@@ -329,8 +390,16 @@ $hrmdb{DTG0}\t0\t0\t0\t0\t0
 0\t0\t0\t0\t0\t0
 Generated by g2p.
 
-[ExerciseInfo1]
-101	1	24	6	12	512
+);
+}
+
+my $i=1;
+my $e="ExerciseInfo$i";
+while(defined $pddb{$e}){
+   $e="ExerciseInfo". ++$i;
+}
+push @{$pddb{EXERCISEINFOLIST}},$e;
+push @{$pddb{$e}},qq(101	1	24	6	12	512
 0	0	0	7700	50309	2770
 1	77	0	2	0	364
 7700	0	0	0	0	55
@@ -358,9 +427,7 @@ Generated by g2p.
 
 
 $hrmdb{HRMFILE}
-EOT
-;
-close PDD;
+);
 }
 
 #---------------------------------------------------------------------------
@@ -385,8 +452,9 @@ $parser->setHandlers('Start' => \&start_element,
 
 #---------------------------------------------------------------------------
 #parse the tcx file
+my $tcxfilein="$ENV{INFILE}";
 open TCX,"<$tcxfilein" or die "cannot open $tcxfilein";
-print "parsing $tcxfilein...\n";
+#print "parsing $tcxfilein...\n";
 $parser->parse(*TCX);
 close(TCX);
 
@@ -418,6 +486,9 @@ sub start_element{
    elsif($el eq "Lap"){
       $StartTime=str2time($atts{StartTime});
    }
+   elsif($el eq "Track"){
+      $inTrack="true";
+   }
    #print "start_element: el=$el\n";
 }
 
@@ -433,6 +504,7 @@ sub end_element{
    elsif($el eq "Lap"){
       #print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
       $tcxdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
+      $tcxdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}=$LapDistanceMeters;
    }
    elsif($el eq "Trackpoint"){
       #print "Trackpoint completed: Time=$Time\n";
@@ -461,6 +533,9 @@ sub end_element{
          $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$AltitudeMeters;
          $AltitudeMeters="";
       }
+   }
+   elsif($el eq "Track"){
+      $inTrack="";
    }
    elsif($el eq "Name"){
       $Name=$currval;
@@ -511,12 +586,6 @@ sub end_element{
    elsif($el eq "Id"){
       $Id=$currval;
    }
-   elsif($el eq "Id"){
-      $Id=$currval;
-   }
-   elsif($el eq "Id"){
-      $Id=$currval;
-   }
    elsif($el eq "Time"){
       $Time=str2time($currval);
    }
@@ -533,7 +602,12 @@ sub end_element{
       $RunCadence=$currval;
    }
    elsif($el eq "DistanceMeters"){
-      $DistanceMeters=$currval;
+      if($inTrack){
+         $DistanceMeters=$currval;
+      }
+      else{
+         $LapDistanceMeters=$currval;
+      }
    }
    elsif($el eq "AltitudeMeters"){
       $AltitudeMeters=$currval;
@@ -550,7 +624,7 @@ sub end_element{
 #load the initialisation file
 my $cfgfile="$ENV{PLCFGFILE}";
 if(-f $cfgfile){
-  print "loading $cfgfile...\n";
+   #print "${l}loading $cfgfile...\n";
    require $cfgfile;
 }
 else{
@@ -571,6 +645,17 @@ else{
 #print "premature\n";exit 1;
 
 #---------------------------------------------------------------------------
+#check environment
+die "ID is not set" if(!$ENV{ID});
+die "INFILE is not set" if(!$ENV{INFILE});
+#print "ID=$ENV{ID}, INFILE=$ENV{INFILE}\n";
+#print "premature\n";exit 1;
+
+#---------------------------------------------------------------------------
+my $mode=$ENV{ID};
+if($mode eq "fr310xt"){
+
+#---------------------------------------------------------------------------
 #populate from cfgdb
 @{$hrmdb{HRZones}}=@{$$rcfgdb{USER}{HRZONES}};
 @{$hrmdb{Trip}}=@{$$rcfgdb{USER}{TRIP}};
@@ -584,10 +669,22 @@ parse_tcxfile();
 
 #---------------------------------------------------------------------------
 smooth();
-
 #---------------------------------------------------------------------------
 populate_hrmdb();
-
-#---------------------------------------------------------------------------
+showsummary_hrmdb();
 gen_hrmfile();
+#---------------------------------------------------------------------------
+populate_pddb();
 gen_pddfile();
+
+}
+#---------------------------------------------------------------------------
+elsif($mode eq "e500"){
+   print "mode $mode not yet supported\n";
+   print "input file: $ENV{INFILE}\n";
+}
+#---------------------------------------------------------------------------
+elsif($mode eq "tacx"){
+   print "mode $mode not yet supported\n";
+   print "input file: $ENV{INFILE}\n";
+}

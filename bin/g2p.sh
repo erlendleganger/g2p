@@ -13,6 +13,7 @@ echo OUTDIR=$OUTDIR
 #echo PLCFGFILE=$PLCFGFILE
 #echo SHCFGFILE=$SHCFGFILE
 #echo BASENAME=$BASENAME
+L=------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------
 #check that all files are there
@@ -32,17 +33,49 @@ source $SHCFGFILE
 #parse parameters?
 
 #---------------------------------------------------------------------------
-export TCXFILEINPUT=$(find $TCXDIR -type f|sort|tail -1)
-if [ ! -f $TCXFILEINPUT ]; then
-   echo error - cannot open $TCXFILEINPUT
+#check output directory
+if [ -z "$POLARDIR" ]; then
+   echo "error - POLARDIR not set"
+   exit 1
+else
+   if [ ! -d "$POLARDIR" ]; then
+      echo "error - POLARDIR=$POLARDIR does not exist"
+      exit 1
+   fi
 fi
 
 #---------------------------------------------------------------------------
-#run main script
-perl $PLFILE
+I=0
+while [ $I -lt ${#aID[@]} ]; do
+   #------------------------------------------------------------------------
+   export ID=${aID[$I]}
+   SRCDIR=${aSRCDIR[$I]}
+   PATTERN=${aPATTERN[$I]}
+   TIMESTAMP=$SRCDIR/timestamp-$ID.txt
+   #echo SRCDIR=$SRCDIR
+   #echo TIMESTAMP=$TIMESTAMP
+
+   #------------------------------------------------------------------------
+   [ -f $TIMESTAMP ] || date>$TIMESTAMP
+
+   #------------------------------------------------------------------------
+   echo $L
+   echo searching $SRCDIR...
+   for INFILE in $(find $SRCDIR -type f -prune -name "$PATTERN" -newer $TIMESTAMP); do
+      echo file: $(basename $INFILE)
+      export INFILE
+      perl $PLFILE
+   done
+
+   #------------------------------------------------------------------------
+   #touch -r bin/cwid-xml-parser-xpat.pl $TIMESTAMP
+   touch $TIMESTAMP
+
+   #------------------------------------------------------------------------
+   I=$((++I))
+done
 
 #---------------------------------------------------------------------------
-echo this is $0
 #echo
 #echo hit return to exit
 #read key
