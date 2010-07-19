@@ -15,6 +15,7 @@ echo OUTDIR=$OUTDIR
 #echo BASENAME=$BASENAME
 
 #---------------------------------------------------------------------------
+#check that all files are there
 for F in $SHCFGFILE $PLCFGFILE $PLFILE; do
    if [ ! -f $F ]; then
       echo error - cannot find $F
