@@ -13,4 +13,5 @@ aPATTERN=(*.TCX *.fit *.hrm)
 #---------------------------------------------------------------------------
 export POLARDIR="testdata\\Erlend Leganger\\$(date "+%Y")"
 export POLARDIR="D:\\bruker\\erlend\\personlig\\trening\\polar\\Erlend Leganger\\$(date "+%Y")"
+export POLARDIR=/cygdrive/c/tmp
 
