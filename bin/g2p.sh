@@ -9,7 +9,7 @@ export OUTDIR=$(cd $(dirname $0)/..;pwd)/tmp
 export HRMFILEOUTPUT=$OUTDIR/gen-0.hrm
 export TCXFILEOUTPUT=$OUTDIR/gen-0.tcx
 #echo BINDIR=$BINDIR
-echo OUTDIR=$OUTDIR
+#echo OUTDIR=$OUTDIR
 #echo PLCFGFILE=$PLCFGFILE
 #echo SHCFGFILE=$SHCFGFILE
 #echo BASENAME=$BASENAME
@@ -56,20 +56,25 @@ while [ $I -lt ${#aID[@]} ]; do
    #echo TIMESTAMP=$TIMESTAMP
 
    #------------------------------------------------------------------------
-   [ -f $TIMESTAMP ] || date>$TIMESTAMP
-
-   #------------------------------------------------------------------------
    echo $L
-   echo searching $SRCDIR...
-   for INFILE in $(find $SRCDIR -type f -prune -name "$PATTERN" -newer $TIMESTAMP); do
-      echo file: $(basename $INFILE)
-      export INFILE
-      perl $PLFILE
-   done
+   if [ -d $SRCDIR ]; then
+      #------------------------------------------------------------------------
+      [ -f $TIMESTAMP ] || date>$TIMESTAMP
 
-   #------------------------------------------------------------------------
-   #touch -r bin/cwid-xml-parser-xpat.pl $TIMESTAMP
-   touch $TIMESTAMP
+      #------------------------------------------------------------------------
+      echo searching $SRCDIR...
+      for INFILE in $(find $SRCDIR -type f -prune -name "$PATTERN" -newer $TIMESTAMP); do
+         echo file: $(basename $INFILE)
+         export INFILE
+         perl $PLFILE
+      done
+   
+      #------------------------------------------------------------------------
+      #touch -r bin/cwid-xml-parser-xpat.pl $TIMESTAMP
+      touch $TIMESTAMP
+   else
+      echo warning - cannot find $SRCDIR
+   fi
 
    #------------------------------------------------------------------------
    I=$((++I))
