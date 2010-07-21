@@ -221,7 +221,7 @@ for $Id(sort keys %{$tcxdb{Activity}}){
       my $speed=int 0.5+36*$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed};
       my $cadence=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence};
       my $altitude=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
-      push @{$hrmdb{HRData}},"$hr\t$speed\t$cadence\t$altitude"; 
+      push @{$hrmdb{HRData}},[$hr,$speed,$cadence,$altitude]; 
    }
 
    #------------------------------------------------------------------------
@@ -237,13 +237,11 @@ for $Id(sort keys %{$tcxdb{Activity}}){
       $totaldistance+=$lapdistance;
       my $laptimestr=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
       #print "lap start: $Time, lap time: $laptime\n";
-      push @{$hrmdb{IntTimes}},"$laptimestr\t0\t0\t0\t0";
-      push @{$hrmdb{IntTimes}},"0\t0\t0\t0\t0";
-      push @{$hrmdb{IntTimes}},"0\t0\t0\t0\t0";
-      push @{$hrmdb{IntTimes}},"0\t0\t0\t0\t0";
-      push @{$hrmdb{IntTimes}},"0\t0\t0\t0\t0";
-      #push @{$hrmdb{IntTimes}},"33554432\t627\t0\t0\t0\t0";
-      #push @{$hrmdb{IntTimes}},"104\t0\t0\t0\t0\t0";
+      push @{$hrmdb{IntTimes}},[$laptimestr,0,0,0,0];
+      push @{$hrmdb{IntTimes}},[0,0,0,0,0];
+      push @{$hrmdb{IntTimes}},[0,0,0,0,0];
+      push @{$hrmdb{IntTimes}},[0,0,0,0,0];
+      push @{$hrmdb{IntTimes}},[0,0,0,0,0];
    }
    $hrmdb{Params}{Length}{payload}=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
    $hrmdb{Params}{Date}{payload}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
@@ -264,13 +262,9 @@ print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
 print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
 print  "Duration: $hrmdb{Params}{Length}{payload}\n";
 printf "Distance: %3.1fkm\n", $hrmdb{DISTANCE}/1000.0;
-print  "Exercise: ";
-   $hrmdb{EXERCISE}=<STDIN>;
-   chomp $hrmdb{EXERCISE};
-print  "Comment.: ";
-   $hrmdb{NOTE}=<STDIN>;
-   chomp $hrmdb{NOTE};
-#@{$hrmdb{Note}}=("This section is not used");
+#print  "Exercise: "; $hrmdb{EXERCISE}=<STDIN>; chomp $hrmdb{EXERCISE};
+print  "Comment.: "; $hrmdb{NOTE}=<STDIN>; chomp $hrmdb{NOTE};
+push @{$hrmdb{Note}},[$hrmdb{NOTE}];
 }
 
 #---------------------------------------------------------------------------
@@ -334,10 +328,10 @@ while(-f "$ENV{POLARDIR}/$hrmfile"){
 #print "hrmfile=$hrmfile\n";
 $hrmdb{HRMFILE}=$hrmfile;
 open HRM,">$ENV{POLARDIR}/$hrmfile" or die "cannot create $hrmfile";
+print "creating $hrmfile...\n";
 for my $s(qw(Params)){
    print HRM qq([$s]\n);
-   for my $key(sort{$hrmdb{$s}{$a}{order} <=> $hrmdb{$s}{$b}{order}} 
-               keys %{$hrmdb{$s}}){
+   for my $key(sort{$hrmdb{$s}{$a}{order} <=> $hrmdb{$s}{$b}{order}} keys %{$hrmdb{$s}}){
       print HRM qq($key=$hrmdb{$s}{$key}{payload}\n);
    }
    print HRM "\n";
@@ -345,7 +339,8 @@ for my $s(qw(Params)){
 for my $s(qw(Note IntTimes ExtraData Summary-123 Summary-TH
              HRZones SwapTimes Trip HRData)){
    print HRM qq([$s]\n);
-   for my $l(@{$hrmdb{$s}}){
+   for my $aref(@{$hrmdb{$s}}){
+      my $l=join "\t",@$aref;
       print HRM "$l\n";
    }
    print HRM "\n";
@@ -357,11 +352,13 @@ close HRM;
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub gen_pddfile{
-my $pddfile="$ENV{POLARDIR}/$hrmdb{PDDFILE}";
-open PDD,">$pddfile" or die "cannot create $pddfile";
+my $pddfile="$hrmdb{PDDFILE}";
+open PDD,">$ENV{POLARDIR}/$pddfile" or die "cannot create $pddfile";
+print "updating $pddfile...\n";
 for my $s(qw(DayInfo), sort @{$pddb{EXERCISEINFOLIST}}){
    print PDD qq([$s]\n);
-   for my $l(@{$pddb{$s}}){
+   for my $aref(@{$pddb{$s}}){
+      my $l=join "\t",@$aref;
       print PDD "$l\n";
    }
    print PDD "\n";
@@ -375,6 +372,7 @@ sub populate_pddb{
 my $pddfile="$ENV{POLARDIR}/$hrmdb{PDDFILE}";
 if(-f $pddfile){
    open PDD,"<$pddfile" or die "cannot open $pddfile";
+   print "reading existing $hrmdb{PDDFILE}...\n";
    my $section;
    while(<PDD>){
       chomp;
@@ -382,10 +380,9 @@ if(-f $pddfile){
          $section=$1;
          push @{$pddb{EXERCISEINFOLIST}},$section if($section=~m/ExerciseInfo/);
          $pddb{EXERCISECOUNT}++ if($section=~m/ExerciseInfo/);
-	 print "section=$section, count=$pddb{EXERCISECOUNT}\n";
       }
       else{
-         push @{$pddb{$section}},$_ if ($section);
+         push @{$pddb{$section}},[split /\t/,$_] if ($section);
       }
    }
    close PDD;
@@ -398,56 +395,59 @@ while(defined $pddb{$e}){
 }
 push @{$pddb{EXERCISEINFOLIST}},$e;
 $pddb{EXERCISECOUNT}++;
-print "count=$pddb{EXERCISECOUNT}\n";
-push @{$pddb{$e}},qq(101	1	24	6	12	512
-0	0	0	7700	50309	2770
-1	77	0	2	0	364
-7700	0	0	0	0	55
-2	0	0	0	0	0
-0	0	0	0	56	174
-2540	0	0	0	0	10007
-0	0	0	0	1	2
-0	0	0	0	1	0
-131	163	100	156	75	81
-91	117	0	0	0	0
-0	0	0	0	0	45
-473	0	6050	0	0	364
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-0	0	0	0	0	0
-$hrmdb{EXERCISE}
-$hrmdb{NOTE}
-$hrmdb{HRMFILE}
-
-
-
-
-
-
-
-);
+#print "count=$pddb{EXERCISECOUNT}\n";
+push @{$pddb{$e}},[101,1,24,6,12,512],
+[0,0,0,int($hrmdb{DISTANCE}),50309,2770],
+[1,77,0,2,0,364],
+[int($hrmdb{DISTANCE}),0,0,0,0,55],
+[2,0,0,0,0,0],
+[0,0,0,0,56,174],
+[2540,0,0,0,0,10007],
+[0,0,0,0,1,2],
+[0,0,0,0,1,0],
+[131,163,100,156,75,81],
+[91,117,0,0,0,0],
+[0,0,0,0,0,45],
+[473,0,6050,0,0,364],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[$hrmdb{EXERCISE}],
+[$hrmdb{NOTE}],
+[$hrmdb{HRMFILE}],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+;
 if(!defined $pddb{DayInfo}){
-push @{$pddb{DayInfo}},qq(100\t1\t7\t6\t1\t512
-$hrmdb{DTG0}\t$pddb{EXERCISECOUNT}\t0\t0\t0\t0
-0\t0\t0\t0\t0\t0
-0\t0\t0\t0\t0\t0
-0\t0\t0\t0\t0\t0
-0\t0\t0\t0\t0\t0
-0\t0\t0\t0\t0\t0
-0\t0\t0\t0\t0\t0
-
-);
+push @{$pddb{DayInfo}},[100,1,7,6,1,512],
+[$hrmdb{DTG0},$pddb{EXERCISECOUNT},0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[0,0,0,0,0,0],
+[],
+;
 #day note in empty line above
-print "get_field: ",get_field($pddb{DayInfo},0,0),"\n";
+#print "get_field: ",get_field($pddb{DayInfo},0,0),"\n";
+}
+else{
+   ${$pddb{DayInfo}}[1][1]=$pddb{EXERCISECOUNT};
 }
 }
 

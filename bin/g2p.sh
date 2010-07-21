@@ -64,6 +64,7 @@ while [ $I -lt ${#aID[@]} ]; do
       #------------------------------------------------------------------------
       echo searching $SRCDIR...
       for INFILE in $(find $SRCDIR -type f -prune -name "$PATTERN" -newer $TIMESTAMP); do
+         echo $L
          echo file: $(basename $INFILE)
          export INFILE
          perl $PLFILE
