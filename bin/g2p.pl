@@ -248,6 +248,7 @@ for $Id(sort keys %{$tcxdb{Activity}}){
    $hrmdb{Params}{StartTime}{payload}=strftime("\%H:\%M:\%S.0", localtime($firstlapstarttime));
    $hrmdb{DISTANCE}=$totaldistance;
    $hrmdb{STARTTIME}=$firstlapstarttime;
+   $hrmdb{TOTALTIME}=$totaltime;
    #$hrmdb{HRMFILE}=strftime("\%g\%m\%d01.hrm", localtime($firstlapstarttime));
    $hrmdb{PDDFILE}=strftime("\%Y\%m\%d.pdd", localtime($firstlapstarttime));
    $hrmdb{DTG0}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
@@ -397,7 +398,9 @@ push @{$pddb{EXERCISEINFOLIST}},$e;
 $pddb{EXERCISECOUNT}++;
 #print "count=$pddb{EXERCISECOUNT}\n";
 push @{$pddb{$e}},[101,1,24,6,12,512],
-[0,0,0,int($hrmdb{DISTANCE}),50309,2770],
+[0,0,0,int($hrmdb{DISTANCE}),
+int($hrmdb{STARTTIME}-str2time(strftime("\%Y-\%m-\%dT00:00:00", localtime($hrmdb{STARTTIME})))),
+int($hrmdb{TOTALTIME})],
 [1,77,0,2,0,364],
 [int($hrmdb{DISTANCE}),0,0,0,0,55],
 [2,0,0,0,0,0],
