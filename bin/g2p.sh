@@ -51,7 +51,7 @@ while [ $I -lt ${#aID[@]} ]; do
    export ID=${aID[$I]}
    SRCDIR=${aSRCDIR[$I]}
    PATTERN=${aPATTERN[$I]}
-   TIMESTAMP=$SRCDIR/timestamp-$ID.txt
+   TIMESTAMP=$(get_timestamp_filename $SRCDIR $ID)
    #echo SRCDIR=$SRCDIR
    #echo TIMESTAMP=$TIMESTAMP
 
