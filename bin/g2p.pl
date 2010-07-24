@@ -131,7 +131,7 @@ print "end: dump $key\n";
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
-sub smooth{
+sub smooth_tcxdb{
    for $Id(sort keys %{$tcxdb{Activity}}){
       #print "Id=$Id\n";
       #get start and end time
@@ -453,6 +453,30 @@ else{
    ${$pddb{DayInfo}}[1][1]=$pddb{EXERCISECOUNT};
 }
 }
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub parse_fitcsvfile{
+my $fitcsvfile="$ENV{FITCSVDIR}/$ENV{INFILEBASE}.csv";
+$Id="fit";
+open CSV, "<$fitcsvfile" or die "cannot open $fitcsvfile";
+while(<CSV>){
+   my @l;
+   if(m/,lap,/){
+      print "found lap\n";
+   }
+   elsif(m/,record,/){
+      @l=split /,/;
+      #print strftime("\%H:\%M:\%S", localtime($l[4])),",";
+      $Time=$l[4];
+      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[25];
+      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$l[19];
+      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[28];
+      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$l[16];
+   }
+}
+close CSV;
+for(qw(AltitudeMeters Speed RunCadence HeartRateBpm)){ mydump($Id,$_); }
+}
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
@@ -671,6 +695,7 @@ else{
 #check environment
 die "ID is not set" if(!$ENV{ID});
 die "INFILE is not set" if(!$ENV{INFILE});
+die "INFILEBASE is not set" if(!$ENV{INFILEBASE});
 #print "ID=$ENV{ID}, INFILE=$ENV{INFILE}\n";
 #print "premature\n";exit 1;
 
@@ -685,7 +710,7 @@ parse_tcxfile();
 #gen_tcxfile();
 
 #---------------------------------------------------------------------------
-smooth();
+smooth_tcxdb();
 #---------------------------------------------------------------------------
 populate_hrmdb();
 showsummary_hrmdb();
@@ -697,8 +722,8 @@ gen_pddfile();
 }
 #---------------------------------------------------------------------------
 elsif($mode eq "e500"){
-   print "mode $mode not yet supported\n";
-   print "input file: $ENV{INFILE}\n";
+parse_fitcsvfile();
+
 }
 #---------------------------------------------------------------------------
 elsif($mode eq "tacx"){

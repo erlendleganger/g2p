@@ -1,11 +1,14 @@
 #!/bin/bash
 #---------------------------------------------------------------------------
 export BINDIR=$(cd $(dirname $0);pwd)
+export BASEDIR=$(cd $BINDIR/..;pwd)
 export BASENAME=$(echo $(basename $0)|sed "s/\..*//")
 export PLCFGFILE=$BINDIR/$BASENAME-ini.pl
 export SHCFGFILE=$BINDIR/$BASENAME-ini.sh
 export PLFILE=$BINDIR/$BASENAME.pl
-export OUTDIR=$(cd $(dirname $0)/..;pwd)/tmp
+export OUTDIR=$BASEDIR/tmp
+export FITCSVDIR=$BASEDIR/tmp/fitcsv
+FITCSVTOOL=../../bin/FitCSVTool.jar
 export HRMFILEOUTPUT=$OUTDIR/gen-0.hrm
 export TCXFILEOUTPUT=$OUTDIR/gen-0.tcx
 #echo BINDIR=$BINDIR
@@ -14,6 +17,20 @@ export TCXFILEOUTPUT=$OUTDIR/gen-0.tcx
 #echo SHCFGFILE=$SHCFGFILE
 #echo BASENAME=$BASENAME
 L=------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+#unpack the fit file into csv files for the perl script to pick up
+#---------------------------------------------------------------------------
+unpack_fit_file(){
+rm -rf $FITCSVDIR
+mkdir -p $FITCSVDIR
+cd $FITCSVDIR
+echo decoding fit file...
+java -jar $FITCSVTOOL -b $1 $(basename $1)
+}
+
+#---------------------------------------------------------------------------
+#main code
 
 #---------------------------------------------------------------------------
 #check that all files are there
@@ -66,12 +83,14 @@ while [ $I -lt ${#aID[@]} ]; do
       for INFILE in $(find $SRCDIR -type f -prune -name "$PATTERN" -newer $TIMESTAMP); do
          echo $L
          echo file: $(basename $INFILE)
+	 #unpack fit file for Edge 500
+	 [ $ID = "e500" ] && unpack_fit_file $INFILE
          export INFILE
+         export INFILEBASE=$(basename $INFILE)
          perl $PLFILE
       done
    
       #------------------------------------------------------------------------
-      #touch -r bin/cwid-xml-parser-xpat.pl $TIMESTAMP
       touch $TIMESTAMP
    else
       echo warning - cannot find $SRCDIR
