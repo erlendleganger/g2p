@@ -2,7 +2,7 @@
 #the date to generate test data for
 TEST_YYYY=2010
 TEST_MM=07
-TEST_DD=23
+TEST_DD=28
 TEST_BACKUPDIR=
 
 #------------------------------------------------------------------------
