@@ -22,11 +22,11 @@ L=------------------------------------------------------------------------
 #unpack the fit file into csv files for the perl script to pick up
 #---------------------------------------------------------------------------
 unpack_fit_file(){
-rm -rf $FITCSVDIR
-mkdir -p $FITCSVDIR
-cd $FITCSVDIR
-echo decoding fit file...
-java -jar $FITCSVTOOL -b $1 $(basename $1)
+   rm -rf $FITCSVDIR
+   mkdir -p $FITCSVDIR
+   cd $FITCSVDIR
+   echo decoding fit file...
+   java -jar $FITCSVTOOL -b $1 $(basename $1)
 }
 
 #---------------------------------------------------------------------------
