@@ -259,14 +259,25 @@ for $Id(sort keys %{$tcxdb{Activity}}){
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
-sub showsummary_hrmdb{
+sub user_interaction{
 print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
 print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
 print  "Duration: $hrmdb{Params}{Length}{payload}\n";
 printf "Distance: %3.1fkm\n", $hrmdb{DISTANCE}/1000.0;
 #print  "Exercise: "; $hrmdb{EXERCISE}=<STDIN>; chomp $hrmdb{EXERCISE};
-print  "Comment.: "; $hrmdb{NOTE}=<STDIN>; chomp $hrmdb{NOTE};
-push @{$hrmdb{Note}},[$hrmdb{NOTE}];
+
+#---------------------------------------------------------------------------
+print  "Add this session to Polar ProTrainer? [y, n] ";
+my $answer=<STDIN>;chomp $answer;
+if($answer eq "y"){
+   print  "Comment.: "; $hrmdb{NOTE}=<STDIN>; chomp $hrmdb{NOTE};
+   push @{$hrmdb{Note}},[$hrmdb{NOTE}];
+   return 1;
+}
+else{
+   print "Skipping session...\n";
+   return "";
+}
 }
 
 #---------------------------------------------------------------------------
@@ -703,28 +714,30 @@ die "INFILEBASE is not set" if(!$ENV{INFILEBASE});
 my $mode=$ENV{ID};
 if($mode eq "fr310xt"){
 
-#---------------------------------------------------------------------------
-parse_tcxfile();
+   #------------------------------------------------------------------------
+   parse_tcxfile();
 
-#---------------------------------------------------------------------------
-#gen_tcxfile();
+   #------------------------------------------------------------------------
+   #gen_tcxfile();
 
-#---------------------------------------------------------------------------
-smooth_tcxdb();
-#---------------------------------------------------------------------------
-populate_hrmdb();
-showsummary_hrmdb();
-gen_hrmfile();
-#---------------------------------------------------------------------------
-populate_pddb();
-gen_pddfile();
+   #------------------------------------------------------------------------
+   smooth_tcxdb();
+
+   #------------------------------------------------------------------------
+   populate_hrmdb();
+   if(user_interaction()){
+      gen_hrmfile();
+      populate_pddb();
+      gen_pddfile();
+   }
 
 }
+
 #---------------------------------------------------------------------------
 elsif($mode eq "e500"){
-parse_fitcsvfile();
-
+   parse_fitcsvfile();
 }
+
 #---------------------------------------------------------------------------
 elsif($mode eq "tacx"){
    print "mode $mode not yet supported\n";
