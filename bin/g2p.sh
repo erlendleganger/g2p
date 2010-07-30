@@ -6,6 +6,7 @@ export BASENAME=$(echo $(basename $0)|sed "s/\..*//")
 export PLCFGFILE=$BINDIR/$BASENAME-ini.pl
 export SHCFGFILE=$BINDIR/$BASENAME-ini.sh
 export PLFILE=$BINDIR/$BASENAME.pl
+export LOGDIR=$BASEDIR/log
 export OUTDIR=$BASEDIR/tmp
 export FITCSVDIR=$BASEDIR/tmp/fitcsv
 FITCSVTOOL=../../bin/FitCSVTool.jar

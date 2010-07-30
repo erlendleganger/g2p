@@ -4,13 +4,16 @@ use XML::Parser::Expat;
 use HTTP::Date;
 use Data::Dumper;
 use POSIX qw{strftime}; 
+use Log::Log4perl;
 $Data::Dumper::Indent = 1;
 my %db;
 my $currval;
 my $l="-"x72 ."\n";
+my $log;
 
 #---------------------------------------------------------------------------
-my %tcxdb;
+my $timeoffsetfit=str2time("1989-12-31T00:00:00");
+my %exdb;
 my %hrmdb;
 my %pddb;
 my $rcfgdb;
@@ -51,7 +54,6 @@ $hrmdb{Params}{Date}{order}=$order++;
 $hrmdb{Params}{StartTime}{order}=$order++;
 #$hrmdb{Params}{StartTime}{payload}="19:05:09.0";
 $hrmdb{Params}{Length}{order}=$order++;
-#$hrmdb{Params}{Length}{payload}="01:55:36.0";
 $hrmdb{Params}{Interval}{order}=$order++;
 $hrmdb{Params}{Interval}{payload}="1";
 $hrmdb{Params}{Upper1}{order}=$order++;
@@ -123,51 +125,52 @@ sub mydump{
 my $id=shift;
 my $key=shift;
 print "start: dump $key\n";
-for $Time(sort keys %{$tcxdb{Activity}{$id}{Trackpoint}}){
-   print "Time=$Time, $key=$tcxdb{Activity}{$id}{Trackpoint}{$Time}{$key}\n";
+for $Time(sort keys %{$exdb{Activity}{$id}{Trackpoint}}){
+   print "Time=$Time, $key=$exdb{Activity}{$id}{Trackpoint}{$Time}{$key}\n";
 }
 print "end: dump $key\n";
 }
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
-sub smooth_tcxdb{
-   for $Id(sort keys %{$tcxdb{Activity}}){
-      #print "Id=$Id\n";
+sub smooth_exdb{
+   for $Id(sort keys %{$exdb{Activity}}){
+      $log->debug("Id=$Id\n");
       #get start and end time
       my $t_start=1e20;
       my $t_end=-1;
-      for $Time(keys %{$tcxdb{Activity}{$Id}{Trackpoint}}){
+      for $Time(keys %{$exdb{Activity}{$Id}{Trackpoint}}){
          $t_start=$Time if($t_start>$Time);
          $t_end=$Time if($t_end<$Time);
       }
-      #print "t_start=$t_start\n";
-      #print "t_end=$t_end\n";
-      #print "diff=",$t_end-$t_start,"\n";
+      $log->debug("Id=$Id\n");
+      $log->debug("t_start=$t_start\n");
+      $log->debug("t_end=$t_end\n");
+      $log->debug("diff=",$t_end-$t_start,"\n");
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
 	 #mydump($Id,$key);
          #------------------------------------------------------------------
 	 #make sure first trackpoint has a value for this key
 	 $Time=$t_start;
-         while(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
-	 my $v_start=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 #print "key=$key, Time=$Time, v_start=$v_start\n";
+         while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
+	 my $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $log->debug("key=$key, Time=$Time, v_start=$v_start\n");
 	 while(--$Time ge $t_start){
-	    #print "start: setting $key=$v_start for Time=$Time\n";
-	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
+	    $log->debug("start: setting $key=$v_start for Time=$Time\n");
+	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
 	 }
 	 #mydump($Id,$key);
 
          #------------------------------------------------------------------
 	 #make sure last trackpoint has a value for this key
 	 $Time=$t_end;
-         while(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
-	 my $v_end=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 #print "key=$key, Time=$Time, v_end=$v_end\n";
+         while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
+	 my $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $log->debug("key=$key, Time=$Time, v_end=$v_end\n");
 	 while(++$Time le $t_end){
-	    #print "end: setting $key=$v_end for Time=$Time\n";
-	    $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
+	    $log->debug("end: setting $key=$v_end for Time=$Time\n");
+	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
 	 }
 	 #mydump($Id,$key);
          
@@ -175,18 +178,18 @@ sub smooth_tcxdb{
 	 my $t_missing="";
 	 $Time=$t_start;
          while($Time<=$t_end){
-            if(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
+            if(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
 	       $t_missing=$Time;
 	       $Time++;
-               while(!defined $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
+               while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
 	          $Time++;
                }
-               $v_start=$tcxdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
-               $v_end=$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+               $v_start=$exdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
+               $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
 	       #print "key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n";
 	      for(my $t=0;$t<$Time-$t_missing;$t++){
 	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
-                 $tcxdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
+                 $exdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
 	      }
 	    }
 	    else{
@@ -198,8 +201,8 @@ sub smooth_tcxdb{
 	 #mydump($Id,$key);
       }
    }
-   #print Dumper(%{$tcxdb{Activity}});
-   #for $Id(keys %{$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
+   #print Dumper(%{$exdb{Activity}});
+   #for $Id(keys %{$exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
 }
          
 #---------------------------------------------------------------------------
@@ -210,17 +213,17 @@ sub populate_hrmdb{
 #populate from cfgdb
 @{$hrmdb{HRZones}}=@{$$rcfgdb{USER}{HRZONES}};
 @{$hrmdb{Trip}}=@{$$rcfgdb{USER}{TRIP}};
-for $Id(sort keys %{$tcxdb{Activity}}){
+for $Id(sort keys %{$exdb{Activity}}){
    #print "populate_hrmdb: Id=$Id\n";
 
    #------------------------------------------------------------------------
    #populate the HRData section of the hrm structure
-   #mydump($Id,"HeartRateBpm");
-   for $Time(sort keys %{$tcxdb{Activity}{$Id}{Trackpoint}}){
-      my $hr=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm};
-      my $speed=int 0.5+36*$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed};
-      my $cadence=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence};
-      my $altitude=int 0.5+$tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
+   for $Time(sort keys %{$exdb{Activity}{$Id}{Trackpoint}}){
+      my $hr=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm};
+      my $speed=int 0.5+36*$exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed};
+      my $cadence=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence};
+      my $altitude=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
+      #print "$Time,$hr,$speed,$cadence,$altitude\n";
       push @{$hrmdb{HRData}},[$hr,$speed,$cadence,$altitude]; 
    }
 
@@ -229,14 +232,14 @@ for $Id(sort keys %{$tcxdb{Activity}}){
    my $totaltime;
    my $totaldistance;
    my $firstlapstarttime;
-   for $Time(sort keys %{$tcxdb{Activity}{$Id}{Lap}}){
+   for $Time(sort keys %{$exdb{Activity}{$Id}{Lap}}){
       $firstlapstarttime=$Time if(!$firstlapstarttime);
-      my $laptime=$tcxdb{Activity}{$Id}{Lap}{$Time}{TotalTimeSeconds};
-      my $lapdistance=$tcxdb{Activity}{$Id}{Lap}{$Time}{DistanceMeters};
+      my $laptime=$exdb{Activity}{$Id}{Lap}{$Time}{TotalTimeSeconds};
+      my $lapdistance=$exdb{Activity}{$Id}{Lap}{$Time}{DistanceMeters};
       $totaltime+=$laptime;
       $totaldistance+=$lapdistance;
       my $laptimestr=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
-      #print "lap start: $Time, lap time: $laptime\n";
+      $log->debug("lap start: $Time, lap time: $laptime\n");
       push @{$hrmdb{IntTimes}},[$laptimestr,0,0,0,0];
       push @{$hrmdb{IntTimes}},[0,0,0,0,0];
       push @{$hrmdb{IntTimes}},[0,0,0,0,0];
@@ -305,20 +308,20 @@ print TCX "<Activities>\n";
 print TCX "</Activities>\n";
 print TCX <<EOT;
  <Author xsi:type="Application_t">
-    <Name>$tcxdb{Author}{Name}</Name>
+    <Name>$exdb{Author}{Name}</Name>
     <Build>
       <Version>
-        <VersionMajor>$tcxdb{Author}{Build}{Version}{VersionMajor}</VersionMajor>
-        <VersionMinor>$tcxdb{Author}{Build}{Version}{VersionMinor}</VersionMinor>
-        <BuildMajor>$tcxdb{Author}{Build}{Version}{BuildMajor}</BuildMajor>
-        <BuildMinor>$tcxdb{Author}{Build}{Version}{BuildMinor}</BuildMinor>
+        <VersionMajor>$exdb{Author}{Build}{Version}{VersionMajor}</VersionMajor>
+        <VersionMinor>$exdb{Author}{Build}{Version}{VersionMinor}</VersionMinor>
+        <BuildMajor>$exdb{Author}{Build}{Version}{BuildMajor}</BuildMajor>
+        <BuildMinor>$exdb{Author}{Build}{Version}{BuildMinor}</BuildMinor>
       </Version>
-      <Type>$tcxdb{Author}{Build}{Type}</Type>
-      <Time>$tcxdb{Author}{Build}{Time}</Time>
-      <Builder>$tcxdb{Author}{Build}{Builder}</Builder>
+      <Type>$exdb{Author}{Build}{Type}</Type>
+      <Time>$exdb{Author}{Build}{Time}</Time>
+      <Builder>$exdb{Author}{Build}{Builder}</Builder>
     </Build>
-    <LangID>$tcxdb{Author}{LangID}</LangID>
-    <PartNumber>$tcxdb{Author}{PartNumber}</PartNumber>
+    <LangID>$exdb{Author}{LangID}</LangID>
+    <PartNumber>$exdb{Author}{PartNumber}</PartNumber>
   </Author>
 EOT
 ;
@@ -464,6 +467,7 @@ else{
    ${$pddb{DayInfo}}[1][1]=$pddb{EXERCISECOUNT};
 }
 }
+
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub parse_fitcsvfile{
@@ -472,21 +476,29 @@ $Id="fit";
 open CSV, "<$fitcsvfile" or die "cannot open $fitcsvfile";
 while(<CSV>){
    my @l;
-   if(m/,lap,/){
-      print "found lap\n";
-   }
-   elsif(m/,record,/){
+   if(m/Data,\d+,lap,/){
       @l=split /,/;
       #print strftime("\%H:\%M:\%S", localtime($l[4])),",";
-      $Time=$l[4];
-      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[25];
-      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$l[19];
-      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[28];
-      $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$l[16];
+      $Time=$l[4]+$timeoffsetfit;
+      $StartTime=$l[7]+$timeoffsetfit;
+      $TotalTimeSeconds=$l[22];
+      $LapDistanceMeters=$l[28];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}=$LapDistanceMeters;
+   }
+   elsif(m/Data,\d+,record,/){
+      @l=split /,/;
+      #print strftime("\%H:\%M:\%S", localtime($l[4])),",";
+      $Time=$l[4]+$timeoffsetfit;
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$l[13];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$l[16];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$l[19];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[25];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[28];
    }
 }
 close CSV;
-for(qw(AltitudeMeters Speed RunCadence HeartRateBpm)){ mydump($Id,$_); }
+#for(qw(AltitudeMeters Speed RunCadence HeartRateBpm)){mydump($Id,$_); }
 }
 
 #---------------------------------------------------------------------------
@@ -519,7 +531,7 @@ close(TCX);
 
 #---------------------------------------------------------------------------
 #dump datastructure for debugging
-#print Dumper(%tcxdb);
+#print Dumper(%exdb);
 
 #---------------------------------------------------------------------------
 } #sub parse_tcxfile
@@ -558,12 +570,12 @@ sub end_element{
    #print "end_element: el=$el\n";
    if($el eq "Activity"){
       #print "Activity completed: Sport=$Sport, Id=$Id\n";
-      $tcxdb{Activity}{$Id}{Sport}=$Sport;
+      $exdb{Activity}{$Id}{Sport}=$Sport;
    }
    elsif($el eq "Lap"){
       #print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
-      $tcxdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
-      $tcxdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}=$LapDistanceMeters;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}=$LapDistanceMeters;
    }
    elsif($el eq "Trackpoint"){
       #print "Trackpoint completed: Time=$Time\n";
@@ -573,23 +585,23 @@ sub end_element{
 	 return;
       }
       if("$DistanceMeters"){
-         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
+         $exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
          $DistanceMeters="";
       }
       if("$Speed"){
-         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$Speed;
+         $exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$Speed;
          $Speed="";
       }
       if("$RunCadence"){
-         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$RunCadence;
+         $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$RunCadence;
          $RunCadence="";
       }
       if("$HeartRateBpm"){
-         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$HeartRateBpm;
+         $exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$HeartRateBpm;
          $HeartRateBpm="";
       }
       if("$AltitudeMeters"){
-         $tcxdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$AltitudeMeters;
+         $exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$AltitudeMeters;
          $AltitudeMeters="";
       }
    }
@@ -627,20 +639,20 @@ sub end_element{
       $BuildMinor=$currval;
    }
    elsif($el eq "Version"){
-      $tcxdb{Author}{Build}{Version}{VersionMajor}=$VersionMajor;
-      $tcxdb{Author}{Build}{Version}{VersionMinor}=$VersionMinor;
-      $tcxdb{Author}{Build}{Version}{BuildMajor}=$BuildMajor;
-      $tcxdb{Author}{Build}{Version}{BuildMinor}=$BuildMinor;
+      $exdb{Author}{Build}{Version}{VersionMajor}=$VersionMajor;
+      $exdb{Author}{Build}{Version}{VersionMinor}=$VersionMinor;
+      $exdb{Author}{Build}{Version}{BuildMajor}=$BuildMajor;
+      $exdb{Author}{Build}{Version}{BuildMinor}=$BuildMinor;
    }
    elsif($el eq "Build"){
-      $tcxdb{Author}{Build}{Type}=$Type;
-      $tcxdb{Author}{Build}{Time}=$Time;
-      $tcxdb{Author}{Build}{Builder}=$Builder;
+      $exdb{Author}{Build}{Type}=$Type;
+      $exdb{Author}{Build}{Time}=$Time;
+      $exdb{Author}{Build}{Builder}=$Builder;
    }
    elsif($el eq "Author"){
-      $tcxdb{Author}{Name}=$Name;
-      $tcxdb{Author}{LangID}=$LangID;
-      $tcxdb{Author}{PartNumber}=$PartNumber;
+      $exdb{Author}{Name}=$Name;
+      $exdb{Author}{LangID}=$LangID;
+      $exdb{Author}{PartNumber}=$PartNumber;
    }
    elsif($el eq "Id"){
       $Id=$currval;
@@ -678,6 +690,21 @@ sub end_element{
 
 #---------------------------------------------------------------------------
 #main code starts here
+my $conf=q(
+log4perl.rootLogger               = DEBUG, myLog
+log4perl.appender.myLog          = Log::Log4perl::Appender::File
+log4perl.appender.myLog.filename = /tmp/g2p.log
+log4perl.appender.myLog.mode     = append
+log4perl.appender.myLog.layout   = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.myLog.layout.ConversionPattern = [%d] [%p] [l %L] %m%n
+);
+Log::Log4perl::init(\$conf);
+$log = Log::Log4perl->get_logger;
+#$logger->debug("I've got something to say!" );
+#$logger->info("I've got something to say!" );
+#$logger->warn("I've got something to say!" );
+#$logger->error("I've got something to say!" );
+#$logger->fatal("I've got something to say!" );
 
 #---------------------------------------------------------------------------
 #load the initialisation file
@@ -721,7 +748,7 @@ if($mode eq "fr310xt"){
    #gen_tcxfile();
 
    #------------------------------------------------------------------------
-   smooth_tcxdb();
+   smooth_exdb();
 
    #------------------------------------------------------------------------
    populate_hrmdb();
@@ -736,6 +763,16 @@ if($mode eq "fr310xt"){
 #---------------------------------------------------------------------------
 elsif($mode eq "e500"){
    parse_fitcsvfile();
+   #smooth_exdb();
+
+   #------------------------------------------------------------------------
+   smooth_exdb();
+   populate_hrmdb();
+   if(user_interaction()){
+      gen_hrmfile();
+      populate_pddb();
+      gen_pddfile();
+   }
 }
 
 #---------------------------------------------------------------------------
