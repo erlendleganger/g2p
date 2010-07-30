@@ -135,7 +135,7 @@ print "end: dump $key\n";
 #---------------------------------------------------------------------------
 sub smooth_exdb{
    for $Id(sort keys %{$exdb{Activity}}){
-      $log->debug("Id=$Id\n");
+      $log->debug("expol: Id=$Id\n");
       #get start and end time
       my $t_start=1e20;
       my $t_end=-1;
@@ -143,10 +143,10 @@ sub smooth_exdb{
          $t_start=$Time if($t_start>$Time);
          $t_end=$Time if($t_end<$Time);
       }
-      $log->debug("Id=$Id\n");
-      $log->debug("t_start=$t_start\n");
-      $log->debug("t_end=$t_end\n");
-      $log->debug("diff=",$t_end-$t_start,"\n");
+      $log->debug("expol: Id=$Id\n");
+      $log->debug("expol: t_start=$t_start\n");
+      $log->debug("expol: t_end=$t_end\n");
+      $log->debug("expol: diff=",$t_end-$t_start,"\n");
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
 	 #mydump($Id,$key);
@@ -157,7 +157,7 @@ sub smooth_exdb{
 	 my $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
 	 $log->debug("key=$key, Time=$Time, v_start=$v_start\n");
 	 while(--$Time ge $t_start){
-	    $log->debug("start: setting $key=$v_start for Time=$Time\n");
+	    $log->debug("expol: start - setting $key=$v_start for Time=$Time\n");
 	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
 	 }
 	 #mydump($Id,$key);
@@ -167,9 +167,9 @@ sub smooth_exdb{
 	 $Time=$t_end;
          while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
 	 my $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 $log->debug("key=$key, Time=$Time, v_end=$v_end\n");
+	 $log->debug("expol: key=$key, Time=$Time, v_end=$v_end\n");
 	 while(++$Time le $t_end){
-	    $log->debug("end: setting $key=$v_end for Time=$Time\n");
+	    $log->debug("expol: end - setting $key=$v_end for Time=$Time\n");
 	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
 	 }
 	 #mydump($Id,$key);
@@ -186,7 +186,7 @@ sub smooth_exdb{
                }
                $v_start=$exdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
                $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	       #print "key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n";
+	       $log->debug("expol: key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n");
 	      for(my $t=0;$t<$Time-$t_missing;$t++){
 	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
                  $exdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
@@ -223,8 +223,9 @@ for $Id(sort keys %{$exdb{Activity}}){
       my $speed=int 0.5+36*$exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed};
       my $cadence=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence};
       my $altitude=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
+      my $power=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{Power};
       #print "$Time,$hr,$speed,$cadence,$altitude\n";
-      push @{$hrmdb{HRData}},[$hr,$speed,$cadence,$altitude]; 
+      push @{$hrmdb{HRData}},[$hr,$speed,$cadence,$altitude,$power]; 
    }
 
    #------------------------------------------------------------------------
@@ -493,8 +494,10 @@ while(<CSV>){
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$l[13];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$l[16];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$l[19];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Power}=$l[22];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[25];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[28];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}=$l[31];
    }
 }
 close CSV;
@@ -690,30 +693,30 @@ sub end_element{
 
 #---------------------------------------------------------------------------
 #main code starts here
+
+#---------------------------------------------------------------------------
+#set up the logger
 my $conf=q(
-log4perl.rootLogger               = DEBUG, myLog
+#level: one of DEBUG, INFO, WARN, ERROR, FATAL:
+log4perl.rootLogger              = DEBUG, myLog
 log4perl.appender.myLog          = Log::Log4perl::Appender::File
 log4perl.appender.myLog.filename = /tmp/g2p.log
 log4perl.appender.myLog.mode     = append
 log4perl.appender.myLog.layout   = Log::Log4perl::Layout::PatternLayout
-log4perl.appender.myLog.layout.ConversionPattern = [%d] [%p] [l %L] %m%n
+log4perl.appender.myLog.layout.ConversionPattern = [%d] [%p] [%L] %m%n
 );
 Log::Log4perl::init(\$conf);
 $log = Log::Log4perl->get_logger;
-#$logger->debug("I've got something to say!" );
-#$logger->info("I've got something to say!" );
-#$logger->warn("I've got something to say!" );
-#$logger->error("I've got something to say!" );
-#$logger->fatal("I've got something to say!" );
 
 #---------------------------------------------------------------------------
 #load the initialisation file
 my $cfgfile="$ENV{PLCFGFILE}";
 if(-f $cfgfile){
-   #print "${l}loading $cfgfile...\n";
+   $log->debug("loading $cfgfile...\n");
    require $cfgfile;
 }
 else{
+   $log->error("cannot find $cfgfile\n");
    die "cannot find $cfgfile";
 }
  
@@ -723,6 +726,7 @@ if(defined &get_cfgdb){
    $rcfgdb=get_cfgdb();
 }
 else{
+   $log->error("cannot get cfgdb\n");
    die "cannot get cfgdb";
 }
 #print Dumper(%$rcfgdb);
@@ -734,8 +738,9 @@ else{
 die "ID is not set" if(!$ENV{ID});
 die "INFILE is not set" if(!$ENV{INFILE});
 die "INFILEBASE is not set" if(!$ENV{INFILEBASE});
-#print "ID=$ENV{ID}, INFILE=$ENV{INFILE}\n";
-#print "premature\n";exit 1;
+$log->trace("ID=$ENV{ID}\n");
+$log->trace("INFILE=$ENV{INFILE}\n");
+$log->trace("INFILEBASE=$ENV{INFILEBASE}\n");
 
 #---------------------------------------------------------------------------
 my $mode=$ENV{ID};
