@@ -146,6 +146,8 @@ print "end: dump $key\n";
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub smooth_exdb{
+my $key;
+my $last_val;
    for $Id(sort keys %{$exdb{Activity}}){
       #get start and end time
       my $t_start=1e20;
@@ -155,18 +157,82 @@ sub smooth_exdb{
          $t_end=$Time if($t_end<$Time);
       }
       #for my $key(qw(AltitudeMeters Speed RunCadence HeartRateBpm Power)){
-      for my $key(qw(HeartRateBpm)){
-         $log->debug("smooth: key=$key\n");
-	 $Time=$t_start;
-        while($Time<=$t_end){
-            $log->debug("smooth: Time=$Time, value=",
-	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key},"\n");
-	    if($exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}<50){
-               $log->debug("smooth: !!!");
-	    }
-	    $Time++;
-         }
+      #for my $key(qw(AltitudeMeters Speed HeartRateBpm Power)){
+      #for my $key(qw(HeartRateBpm)){
+
+      #---------------------------------------------------------------------
+      $key="HeartRateBpm";
+      $Time=$t_start;
+      $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+      $log->debug("smooth: key=$key, t_start=",
+         fmt_time($t_start),", last_val=$last_val\n");
+      while($Time<=$t_end){
+	 my $cur_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 if($cur_val<50){
+            $log->debug("smooth: key=$key, Time=",fmt_time($Time),
+	       ", old value=$cur_val, new value=$last_val\n");
+            $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$last_val;
+	 }
+         $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $Time++;
       }
+
+      #---------------------------------------------------------------------
+      $key="Speed";
+      $Time=$t_start;
+      $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+      $log->debug("smooth: key=$key, t_start=",
+         fmt_time($t_start),", last_val=$last_val\n");
+      while($Time<=$t_end){
+	 my $cur_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+         #$log->debug("smooth: key=$key, Time=",fmt_time($Time),", value=",
+         #   $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key},"\n");
+	 if($cur_val>2*$last_val && $last_val>1.0){
+            $log->debug("smooth: key=$key, Time=",fmt_time($Time),
+	       ", old value=$cur_val, new value=$last_val\n");
+            $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$last_val;
+	 }
+         $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $Time++;
+      }
+
+      #---------------------------------------------------------------------
+      $key="AltitudeMeters";
+      $Time=$t_start;
+      $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+      $log->debug("smooth: key=$key, t_start=",
+         fmt_time($t_start),", last_val=$last_val\n");
+      while($Time<=$t_end){
+	 my $cur_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+         #$log->debug("smooth: key=$key, Time=",fmt_time($Time),", value=",
+         #   $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key},"\n");
+	 if($cur_val>($last_val+10) || $cur_val<($last_val-10)){
+            $log->debug("smooth: key=$key, Time=",fmt_time($Time),
+	       ", old value=$cur_val, new value=$last_val\n");
+            $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$last_val;
+	 }
+         $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $Time++;
+      }
+
+      #---------------------------------------------------------------------
+      $key="RunCadence";
+      $Time=$t_start;
+      $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+      $log->debug("smooth: key=$key, t_start=",
+         fmt_time($t_start),", last_val=$last_val\n");
+      while($Time<=$t_end){
+	 my $cur_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 if($cur_val>($last_val*1.10)){
+            $log->debug("smooth: key=$key, Time=",fmt_time($Time),
+	       ", old value=$cur_val, new value=$last_val\n");
+            $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$last_val;
+	 }
+         $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=($cur_val+$last_val)/2;
+         $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $Time++;
+      }
+
    }
 }
          
@@ -277,7 +343,9 @@ for $Id(sort keys %{$exdb{Activity}}){
       $totaltime+=$laptime;
       $totaldistance+=$lapdistance;
       my $laptimestr=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
-      $log->debug("lap start: $Time, lap time: $laptime\n");
+      $log->debug("lap start: ",fmt_time($Time),
+         ", laptimestr: $laptimestr, lap time: $laptime sec [",
+          strftime("\%M:\%S",localtime($laptime)),"]\n");
       push @{$hrmdb{IntTimes}},[$laptimestr,0,0,0,0];
       push @{$hrmdb{IntTimes}},[0,0,0,0,0];
       push @{$hrmdb{IntTimes}},[0,0,0,0,0];
@@ -307,6 +375,15 @@ print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
 print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
 print  "Duration: $hrmdb{Params}{Length}{payload}\n";
 printf "Distance: %3.1fkm\n", $hrmdb{DISTANCE}/1000.0;
+my $lapnum;
+for $Id(sort keys %{$exdb{Activity}}){
+   for $StartTime(sort keys %{$exdb{Activity}{$Id}{Lap}}){
+      $lapnum++;
+      print "Lap $lapnum: ",
+      strftime("\%M:\%S",localtime($exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds})),", ",
+      sprintf("%3.1f",$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0),"km\n";
+   }
+}
 #print  "Exercise: "; $hrmdb{EXERCISE}=<STDIN>; chomp $hrmdb{EXERCISE};
 
 #---------------------------------------------------------------------------
