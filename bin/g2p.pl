@@ -10,9 +10,13 @@ my %db;
 my $currval;
 my $l="-"x72 ."\n";
 my $log;
+my $SportIdRunning=1;
+my $SportIdCycling=2;
+my $SModeRunning="111000100";
+my $SModeCycling="111111100";
 
 #---------------------------------------------------------------------------
-my $timeoffsetfit=str2time("1989-12-31T00:00:00");
+my $timeoffsetfit=str2time("1989-12-31T00:00:00Z");
 my %exdb;
 my %hrmdb;
 my %pddb;
@@ -48,7 +52,6 @@ $hrmdb{Params}{Version}{payload}="106";
 $hrmdb{Params}{Monitor}{order}=$order++;
 $hrmdb{Params}{Monitor}{payload}="12";
 $hrmdb{Params}{SMode}{order}=$order++;
-$hrmdb{Params}{SMode}{payload}="111000100";
 $hrmdb{Params}{Date}{order}=$order++;
 #$hrmdb{Params}{Date}{payload}="20100712";
 $hrmdb{Params}{StartTime}{order}=$order++;
@@ -121,6 +124,15 @@ my $fileAircraftConfiguration="$fileprefix-AircraftConfiguration.txt";
 my $fileAircraftConfigurationStoreItem="$fileprefix-AircraftConfigurationStoreItem.txt";
 my $fileOperatingLocation="$fileprefix-OperatingLocation.txt";
 
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub fmt_time{
+   my $t=shift;
+   "$t [",strftime("\%Y-\%m-\%d \%H:\%M:\%S", localtime($t)),"]";
+}
+
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
 sub mydump{
 my $id=shift;
 my $key=shift;
@@ -135,7 +147,6 @@ print "end: dump $key\n";
 #---------------------------------------------------------------------------
 sub smooth_exdb{
    for $Id(sort keys %{$exdb{Activity}}){
-      $log->debug("expol: Id=$Id\n");
       #get start and end time
       my $t_start=1e20;
       my $t_end=-1;
@@ -143,36 +154,65 @@ sub smooth_exdb{
          $t_start=$Time if($t_start>$Time);
          $t_end=$Time if($t_end<$Time);
       }
+      #for my $key(qw(AltitudeMeters Speed RunCadence HeartRateBpm Power)){
+      for my $key(qw(HeartRateBpm)){
+         $log->debug("smooth: key=$key\n");
+	 $Time=$t_start;
+        while($Time<=$t_end){
+            $log->debug("smooth: Time=$Time, value=",
+	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key},"\n");
+	    if($exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}<50){
+               $log->debug("smooth: !!!");
+	    }
+	    $Time++;
+         }
+      }
+   }
+}
+         
+
+#---------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+sub extrapolate_exdb{
+   for $Id(sort keys %{$exdb{Activity}}){
+      #get start and end time
+      my $t_start=1e20;
+      my $t_end=-1;
+      for $Time(keys %{$exdb{Activity}{$Id}{Trackpoint}}){
+         $t_start=$Time if($t_start>$Time);
+         $t_end=$Time if($t_end<$Time);
+      }
+
       $log->debug("expol: Id=$Id\n");
-      $log->debug("expol: t_start=$t_start\n");
-      $log->debug("expol: t_end=$t_end\n");
+      $log->debug("expol: t_start=",fmt_time($t_start),"\n");
+      $log->debug("expol: t_end=",fmt_time($t_end),"\n");
       $log->debug("expol: diff=",$t_end-$t_start,"\n");
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
-	 #mydump($Id,$key);
          #------------------------------------------------------------------
 	 #make sure first trackpoint has a value for this key
 	 $Time=$t_start;
          while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
 	 my $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 $log->debug("key=$key, Time=$Time, v_start=$v_start\n");
+	 $log->debug("key=$key, Time=",fmt_time($Time),", v_start=$v_start\n");
 	 while(--$Time ge $t_start){
-	    $log->debug("expol: start - setting $key=$v_start for Time=$Time\n");
+	    $log->debug("expol: start - setting $key=$v_start for Time=",
+	    fmt_time($Time),"\n");
 	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
 	 }
-	 #mydump($Id,$key);
 
          #------------------------------------------------------------------
 	 #make sure last trackpoint has a value for this key
 	 $Time=$t_end;
          while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
 	 my $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 $log->debug("expol: key=$key, Time=$Time, v_end=$v_end\n");
+	 $log->debug("expol: key=$key, Time=",fmt_time($Time),
+	    ", v_end=$v_end\n");
 	 while(++$Time le $t_end){
-	    $log->debug("expol: end - setting $key=$v_end for Time=$Time\n");
+	    $log->debug("expol: end - setting $key=$v_end for Time=",
+	       fmt_time($Time),"\n");
 	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
 	 }
-	 #mydump($Id,$key);
          
          #------------------------------------------------------------------
 	 my $t_missing="";
@@ -186,7 +226,9 @@ sub smooth_exdb{
                }
                $v_start=$exdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
                $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	       $log->debug("expol: key=$key, t_missing=$t_missing, Time=$Time, v_start=$v_start, v_end=$v_end\n");
+	       $log->debug("expol: key=$key, t_missing=",
+	          fmt_time($t_missing),", Time=",fmt_time($Time),
+	          " , v_start=$v_start, v_end=$v_end\n");
 	      for(my $t=0;$t<$Time-$t_missing;$t++){
 	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
                  $exdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
@@ -195,14 +237,9 @@ sub smooth_exdb{
 	    else{
 	       $Time++;
 	    }
-            #print "Time=$Time\n" if($Time eq $t_start);
-            #print "Time=$Time\n" if($Time eq $t_end);
          }
-	 #mydump($Id,$key);
       }
    }
-   #print Dumper(%{$exdb{Activity}});
-   #for $Id(keys %{$exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$DistanceMeters;
 }
          
 #---------------------------------------------------------------------------
@@ -250,6 +287,8 @@ for $Id(sort keys %{$exdb{Activity}}){
    $hrmdb{Params}{Length}{payload}=strftime("\%H:\%M:\%S.0", gmtime($totaltime));
    $hrmdb{Params}{Date}{payload}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
    $hrmdb{Params}{StartTime}{payload}=strftime("\%H:\%M:\%S.0", localtime($firstlapstarttime));
+   $hrmdb{SPORTID}=$exdb{Activity}{$Id}{SportId};
+   $hrmdb{Params}{SMode}{payload}=$exdb{Activity}{$Id}{SMode};
    $hrmdb{DISTANCE}=$totaldistance;
    $hrmdb{STARTTIME}=$firstlapstarttime;
    $hrmdb{TOTALTIME}=$totaltime;
@@ -417,7 +456,7 @@ push @{$pddb{$e}},[101,1,24,6,12,512],
 [0,0,0,int($hrmdb{DISTANCE}),
 int($hrmdb{STARTTIME}-str2time(strftime("\%Y-\%m-\%dT00:00:00", localtime($hrmdb{STARTTIME})))),
 int($hrmdb{TOTALTIME})],
-[1,77,0,2,0,364],
+[$hrmdb{SPORTID},77,0,2,0,364],
 [int($hrmdb{DISTANCE}),0,0,0,0,55],
 [2,0,0,0,0,0],
 [0,0,0,0,56,174],
@@ -475,6 +514,8 @@ sub parse_fitcsvfile{
 my $fitcsvfile="$ENV{FITCSVDIR}/$ENV{INFILEBASE}.csv";
 $Id="fit";
 open CSV, "<$fitcsvfile" or die "cannot open $fitcsvfile";
+$exdb{Activity}{$Id}{SportId}=$SportIdCycling;
+$exdb{Activity}{$Id}{SMode}=$SModeCycling;
 while(<CSV>){
    my @l;
    if(m/Data,\d+,lap,/){
@@ -519,22 +560,12 @@ $parser->setHandlers('Start' => \&start_element,
                      );
 
 #---------------------------------------------------------------------------
-#get
-#my ($yy,$mm,$dd,$tt,$rest)=split/-/,$tcxfilein;
-#print "yy=$yy, mm=$mm, dd=$dd\n";
-#print "premature\n";exit 1;
-
-#---------------------------------------------------------------------------
 #parse the tcx file
 my $tcxfilein="$ENV{INFILE}";
 open TCX,"<$tcxfilein" or die "cannot open $tcxfilein";
 #print "parsing $tcxfilein...\n";
 $parser->parse(*TCX);
 close(TCX);
-
-#---------------------------------------------------------------------------
-#dump datastructure for debugging
-#print Dumper(%exdb);
 
 #---------------------------------------------------------------------------
 } #sub parse_tcxfile
@@ -572,8 +603,16 @@ sub end_element{
    my ($p, $el) = @_;
    #print "end_element: el=$el\n";
    if($el eq "Activity"){
-      #print "Activity completed: Sport=$Sport, Id=$Id\n";
+      $log->debug("Activity completed: Sport=$Sport, Id=$Id\n");
       $exdb{Activity}{$Id}{Sport}=$Sport;
+      if($Sport eq "Running"){
+         $exdb{Activity}{$Id}{SportId}=$SportIdRunning;
+         $exdb{Activity}{$Id}{SMode}=$SModeRunning;
+      }
+      else{
+         $log->fatal("Unknown sport!\n");
+	 exit 1;
+      }
    }
    elsif($el eq "Lap"){
       #print "Lap completed: TotalTimeSeconds=$TotalTimeSeconds\n";
@@ -701,7 +740,7 @@ my $conf=q(
 log4perl.rootLogger              = DEBUG, myLog
 log4perl.appender.myLog          = Log::Log4perl::Appender::File
 log4perl.appender.myLog.filename = /tmp/g2p.log
-log4perl.appender.myLog.mode     = append
+log4perl.appender.myLog.mode     = clobber
 log4perl.appender.myLog.layout   = Log::Log4perl::Layout::PatternLayout
 log4perl.appender.myLog.layout.ConversionPattern = [%d] [%p] [%L] %m%n
 );
@@ -753,7 +792,7 @@ if($mode eq "fr310xt"){
    #gen_tcxfile();
 
    #------------------------------------------------------------------------
-   smooth_exdb();
+   extrapolate_exdb();
 
    #------------------------------------------------------------------------
    populate_hrmdb();
@@ -768,9 +807,10 @@ if($mode eq "fr310xt"){
 #---------------------------------------------------------------------------
 elsif($mode eq "e500"){
    parse_fitcsvfile();
-   #smooth_exdb();
+   #extrapolate_exdb();
 
    #------------------------------------------------------------------------
+   extrapolate_exdb();
    smooth_exdb();
    populate_hrmdb();
    if(user_interaction()){
