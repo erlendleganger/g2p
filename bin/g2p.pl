@@ -256,11 +256,20 @@ sub extrapolate_exdb{
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
          #------------------------------------------------------------------
+	 $log->debug("expol: current key=$key");
+
+         #------------------------------------------------------------------
 	 #make sure first trackpoint has a value for this key
 	 $Time=$t_start;
-         while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
+         while($Time < $t_end && 
+	    !defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
+         if($Time==$t_end){
+	    #no values found, skip to next key
+	    $log->debug("expol: no values found for key=$key");
+	    next;
+	 }
 	 my $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 $log->debug("key=$key, Time=",fmt_time($Time),", v_start=$v_start\n");
+	 $log->debug("Time=",fmt_time($Time),", v_start=$v_start\n");
 	 while(--$Time ge $t_start){
 	    $log->debug("expol: start - setting $key=$v_start for Time=",
 	    fmt_time($Time),"\n");
@@ -272,7 +281,7 @@ sub extrapolate_exdb{
 	 $Time=$t_end;
          while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
 	 my $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	 $log->debug("expol: key=$key, Time=",fmt_time($Time),
+	 $log->debug("expol: Time=",fmt_time($Time),
 	    ", v_end=$v_end\n");
 	 while(++$Time le $t_end){
 	    $log->debug("expol: end - setting $key=$v_end for Time=",
@@ -289,19 +298,22 @@ sub extrapolate_exdb{
 	       $Time++;
                while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
 	          $Time++;
+	          $log->debug("expol: hunting, Time=$Time",fmt_time($Time));
                }
                $v_start=$exdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
                $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
-	       $log->debug("expol: key=$key, t_missing=",
+	       $log->debug("expol: t_missing=",
 	          fmt_time($t_missing),", Time=",fmt_time($Time),
 	          " , v_start=$v_start, v_end=$v_end\n");
 	      for(my $t=0;$t<$Time-$t_missing;$t++){
 	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
+	         $log->debug("expol: t=$t, v=$v");
                  $exdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
 	      }
 	    }
 	    else{
 	       $Time++;
+	       $log->debug("expol: ok - Time=$Time",fmt_time($Time));
 	    }
          }
       }
