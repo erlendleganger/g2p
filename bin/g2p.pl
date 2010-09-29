@@ -392,8 +392,8 @@ for $Id(sort keys %{$exdb{Activity}}){
    for $StartTime(sort keys %{$exdb{Activity}{$Id}{Lap}}){
       $lapnum++;
       print "Lap $lapnum: ",
-      strftime("\%M:\%S",localtime($exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds})),", ",
-      sprintf("%3.1f",$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0),"km\n";
+      strftime("\%H:\%M:\%S",localtime($exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds})),", ",
+      sprintf("%5.1f",$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0),"km\n";
    }
 }
 #print  "Exercise: "; $hrmdb{EXERCISE}=<STDIN>; chomp $hrmdb{EXERCISE};
