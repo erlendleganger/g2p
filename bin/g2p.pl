@@ -386,13 +386,13 @@ sub user_interaction{
 print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
 print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
 print  "Duration: $hrmdb{Params}{Length}{payload}\n";
-printf "Distance: %3.1fkm\n", $hrmdb{DISTANCE}/1000.0;
+printf "Distance: %5.1fkm\n", $hrmdb{DISTANCE}/1000.0;
 my $lapnum;
 for $Id(sort keys %{$exdb{Activity}}){
    for $StartTime(sort keys %{$exdb{Activity}{$Id}{Lap}}){
       $lapnum++;
-      print "Lap $lapnum: ",
-      strftime("\%H:\%M:\%S",localtime($exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds})),", ",
+      print sprintf("Lap %2d: ",$lapnum),
+      strftime("\%H:\%M:\%S",gmtime($exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds})),", ",
       sprintf("%5.1f",$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0),"km\n";
    }
 }
@@ -402,7 +402,10 @@ for $Id(sort keys %{$exdb{Activity}}){
 print  "Add this session to Polar ProTrainer? [y, n] ";
 my $answer=<STDIN>;chomp $answer;
 if($answer eq "y"){
-   print  "Comment.: "; $hrmdb{NOTE}=<STDIN>; chomp $hrmdb{NOTE};
+   print  "Comment.: "; 
+   my $note=<STDIN>; chomp $note;
+   print "note=$note\n";
+   $hrmdb{NOTE}=$note;
    push @{$hrmdb{Note}},[$hrmdb{NOTE}];
    return 1;
 }
