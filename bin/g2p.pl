@@ -423,17 +423,26 @@ my $answer=<STDIN>;chomp $answer;
 if($answer eq "y"){
    print  "Comment.: "; 
    my $note=<STDIN>; chomp $note;
-   print "Include laps? [n; all; 0,2,3]: ";
+   print "Include laps? [n; all; 1,3,7,...]: ";
    $answer=<STDIN>;chomp $answer;
    if($answer ne "n"){
+      $note.=" Runder: ";
       if($answer eq "all"){
          $note.=join "; ", map{$lapdata{$_}} sort{$a<=>$b}keys %lapdata;
       }
+      else{
+         for my $lap(split(",",$answer)){
+	    if(0<$lap and $lap<=$lapnum){
+               $note.="$lapdata{$lap}; ";
+	    }
+	    else{
+	       print "ignoring illegal lap: $lap\n";
+	    }
+	 }
+      }
    }
-   #print "note=$note\n";
-   #push @{$hrmdb{Note}},[$note];
-   $hrmdb{NOTE}=$note;
-   push @{$hrmdb{Note}},[$hrmdb{NOTE}];
+   $hrmdb{NOTE}=$note; #for the pdd file
+   push @{$hrmdb{Note}},[$note]; #for the hrm file
    return 1;
 }
 else{
