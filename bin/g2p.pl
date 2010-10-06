@@ -383,28 +383,55 @@ for $Id(sort keys %{$exdb{Activity}}){
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub user_interaction{
+print  "$l";
 print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
 print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
 print  "Duration: $hrmdb{Params}{Length}{payload}\n";
-printf "Distance: %5.1fkm\n", $hrmdb{DISTANCE}/1000.0;
+printf "Distance: %.1fkm\n", $hrmdb{DISTANCE}/1000.0;
 my $lapnum;
+my %lapdata;
+my $lapstr;
 for $Id(sort keys %{$exdb{Activity}}){
+   print  "$l";
    for $StartTime(sort keys %{$exdb{Activity}{$Id}{Lap}}){
       $lapnum++;
-      print sprintf("Lap %2d: ",$lapnum),
-      strftime("\%H:\%M:\%S",gmtime($exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds})),", ",
-      sprintf("%5.1f",$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0),"km\n";
+      $lapstr=sprintf("%d: ",$lapnum);
+      my $seconds=$exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds};
+      if($seconds>60*60){
+         $lapstr.=strftime("\%H:\%M:\%S",gmtime($seconds));
+      }
+      else{
+         $lapstr.=strftime("\%M:\%S",gmtime($seconds));
+      }
+      my $distkm=$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0;
+      $lapstr.=sprintf(", %.1fkm, ",$distkm);
+      if($exdb{Activity}{$Id}{SportId} eq $SportIdRunning){
+         $lapstr.=strftime("\%M:\%Smin/km",gmtime($seconds/$distkm));
+      }
+      else{
+         $lapstr.=sprintf("%.1fkm/t",$distkm/($seconds/3600.0));
+      }
+      $lapdata{$lapnum}=$lapstr;
+      print "$lapstr\n";
    }
 }
 #print  "Exercise: "; $hrmdb{EXERCISE}=<STDIN>; chomp $hrmdb{EXERCISE};
 
 #---------------------------------------------------------------------------
-print  "Add this session to Polar ProTrainer? [y, n] ";
+print  "${l}Add this session to Polar ProTrainer? [y, n] ";
 my $answer=<STDIN>;chomp $answer;
 if($answer eq "y"){
    print  "Comment.: "; 
    my $note=<STDIN>; chomp $note;
-   print "note=$note\n";
+   print "Include laps? [n; all; 0,2,3]: ";
+   $answer=<STDIN>;chomp $answer;
+   if($answer ne "n"){
+      if($answer eq "all"){
+         $note.=join "; ", map{$lapdata{$_}} sort{$a<=>$b}keys %lapdata;
+      }
+   }
+   #print "note=$note\n";
+   #push @{$hrmdb{Note}},[$note];
    $hrmdb{NOTE}=$note;
    push @{$hrmdb{Note}},[$hrmdb{NOTE}];
    return 1;
