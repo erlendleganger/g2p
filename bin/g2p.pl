@@ -409,7 +409,10 @@ for $Id(sort keys %{$exdb{Activity}}){
          $lapstr.=strftime("\%M:\%Smin/km",gmtime($seconds/$distkm));
       }
       else{
-         $lapstr.=sprintf("%.1fkm/t",$distkm/($seconds/3600.0));
+         $lapstr.=sprintf("%.1fkm/t, ",$distkm/($seconds/3600.0));
+         $lapstr.=sprintf("avg %dW, ",$exdb{Activity}{$Id}{Lap}{$StartTime}{PowerAvg});
+         $lapstr.=sprintf("avg %dbpm, ",$exdb{Activity}{$Id}{Lap}{$StartTime}{HeartAvg});
+         $lapstr.=sprintf("avg %drpm ",$exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceAvg});
       }
       $lapdata{$lapnum}=$lapstr;
       print "$lapstr\n";
@@ -649,12 +652,25 @@ while(<CSV>){
    if(m/Data,\d+,lap,/){
       @l=split /,/;
       #print strftime("\%H:\%M:\%S", localtime($l[4])),",";
+      #Data,6,lap,timestamp,655399331,s,start_time,655398540,,start_position_lat,711209286,semicircles,start_position_long,131472774,semicircles,end_position_lat,711329772,semicircles,end_position_long,132197664,semicircles,total_elapsed_time,790.04,s,total_timer_time,790.04,s,total_distance,6453.85,m,unknown,126.0,,unknown,126.0,,unknown,126.0,,unknown,126.0,,message_index,1,,total_calories,77,kcal,avg_speed,8.169,m/s,max_speed,12.549,m/s,avg_power,142,watts,max_power,371,watts,total_ascent,31,m,total_descent,49,m,event,9,,event_type,1,,avg_heart_rate,120,bpm,max_heart_rate,169,bpm,avg_cadence,82,rpm,max_cadence,239,rpm,intensity,0,,lap_trigger,0,,sport,2,,,,,,,,
       $Time=$l[4]+$timeoffsetfit;
       $StartTime=$l[7]+$timeoffsetfit;
       $TotalTimeSeconds=$l[22];
       $LapDistanceMeters=$l[28];
       $exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
       $exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}=$LapDistanceMeters;
+      my $v_avg=$l[49]; my $v_max=$l[52]; #speed
+      my $p_avg=$l[55]; my $p_max=$l[58]; #power
+      my $h_avg=$l[73]; my $h_max=$l[76]; #heart rate
+      my $c_avg=$l[79]; my $c_max=$l[81]; #cadence
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{SpeedAvg}=$v_avg;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{SpeedMax}=$v_max;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{PowerAvg}=$p_avg;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{PowerMax}=$p_max;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{HeartAvg}=$h_avg;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{HeartMax}=$h_max;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceAvg}=$c_avg;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceMax}=$c_max;
    }
    elsif(m/Data,\d+,record,/){
       @l=split /,/;
