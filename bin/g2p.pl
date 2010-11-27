@@ -11,6 +11,7 @@ my $currval;
 my $l="-"x72 ."\n";
 my $log;
 my $SportIdRunning=1;
+my $SportIdTreadmill=8;
 my $SportIdCycling=2;
 my $SModeRunning="111000100";
 my $SModeCycling="111111100";
@@ -22,6 +23,7 @@ my %hrmdb;
 my %pddb;
 my $rcfgdb;
 my $inTrack;
+my $hasGPS;;
 my $AltitudeMeters;
 my $BuildMajor;
 my $BuildMinor;
@@ -395,7 +397,7 @@ for $Id(sort keys %{$exdb{Activity}}){
    print  "$l";
    for $StartTime(sort keys %{$exdb{Activity}{$Id}{Lap}}){
       $lapnum++;
-      $lapstr=sprintf("%d: ",$lapnum);
+      $lapstr=sprintf("#%d: ",$lapnum);
       my $seconds=$exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds};
       if($seconds>60*60){
          $lapstr.=strftime("\%H:\%M:\%S",gmtime($seconds));
@@ -405,7 +407,8 @@ for $Id(sort keys %{$exdb{Activity}}){
       }
       my $distkm=$exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}/1000.0;
       $lapstr.=sprintf(", %.1fkm, ",$distkm);
-      if($exdb{Activity}{$Id}{SportId} eq $SportIdRunning){
+      if($exdb{Activity}{$Id}{SportId} eq $SportIdRunning or 
+        $exdb{Activity}{$Id}{SportId} eq $SportIdTreadmill){
          $lapstr.=strftime("\%M:\%Smin/km",gmtime($seconds/$distkm));
       }
       else{
@@ -647,6 +650,11 @@ $Id="fit";
 open CSV, "<$fitcsvfile" or die "cannot open $fitcsvfile";
 $exdb{Activity}{$Id}{SportId}=$SportIdCycling;
 $exdb{Activity}{$Id}{SMode}=$SModeCycling;
+seek(CSV,0,0);
+while(<CSV>){
+1;
+}
+seek(CSV,0,0);
 while(<CSV>){
    my @l;
    if(m/Data,\d+,lap,/){
@@ -726,6 +734,7 @@ sub char_data{
 }
 
 #---------------------------------------------------------------------------
+#called by parser->parse on the start of every xml tag
 #---------------------------------------------------------------------------
 sub start_element{
    my ($p, $el, %atts) = @_;
@@ -738,10 +747,14 @@ sub start_element{
    elsif($el eq "Track"){
       $inTrack="true";
    }
+   elsif($el eq "Position"){
+      $hasGPS="true";
+   }
    #print "start_element: el=$el\n";
 }
 
 #---------------------------------------------------------------------------
+#called by parser->parse on the end of every xml tag
 #---------------------------------------------------------------------------
 sub end_element{
    my ($p, $el) = @_;
@@ -750,8 +763,16 @@ sub end_element{
       $log->debug("Activity completed: Sport=$Sport, Id=$Id\n");
       $exdb{Activity}{$Id}{Sport}=$Sport;
       if($Sport eq "Running"){
-         $exdb{Activity}{$Id}{SportId}=$SportIdRunning;
-         $exdb{Activity}{$Id}{SMode}=$SModeRunning;
+         if($hasGPS){
+	    #has GPS data, probably from running outside
+	    $exdb{Activity}{$Id}{SportId}=$SportIdRunning;
+	    $exdb{Activity}{$Id}{SMode}=$SModeRunning;
+	 }
+	 else{
+	    #has no GPS data, probably from running on a treadmill
+	    $exdb{Activity}{$Id}{SportId}=$SportIdTreadmill;
+	    $exdb{Activity}{$Id}{SMode}=$SModeRunning;
+	 }
       }
       else{
          $log->fatal("Unknown sport!\n");
