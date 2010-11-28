@@ -13,6 +13,7 @@ my $log;
 my $SportIdRunning=1;
 my $SportIdTreadmill=8;
 my $SportIdCycling=2;
+my $SportIdCyclotrainer=7;
 my $SModeRunning="111000100";
 my $SModeCycling="111111100";
 
@@ -648,53 +649,201 @@ sub parse_fitcsvfile{
 my $fitcsvfile="$ENV{FITCSVDIR}/$ENV{INFILEBASE}.csv";
 $Id="fit";
 open CSV, "<$fitcsvfile" or die "cannot open $fitcsvfile";
-$exdb{Activity}{$Id}{SportId}=$SportIdCycling;
-$exdb{Activity}{$Id}{SMode}=$SModeCycling;
+
+#---------------------------------------------------------------------------
+#field position in Data and Record line from csf file
+my $iTimeLap;my $iTimeRecord;
+my $iStarttimeLap;
+my $iTotalttimesecondsLap;
+my $iLapdistancemetersLap;
+my $iSpeedavgLap; my $iSpeedmaxLap;
+my $iPoweravgLap; my $iPowermaxLap;
+my $iHeartrateavgLap; my $iHeartratemaxLap;
+my $iCadenceavgLap; my $iCadencemaxLap;
+
+my $iDistanceRecord; my $iSpeedRecord; my $iHeartrateRecord; 
+my $iCadenceRecord; my $iTemperatureRecord; my $iAltitudeRecord; 
+my $iPowerRecord;
+
+#---------------------------------------------------------------------------
+#sample entries in the fit csv file:
+#Data,6,lap,timestamp,655399331,s,start_time,655398540,,start_position_lat,711209286,semicircles,start_position_long,131472774,semicircles,end_position_lat,711329772,semicircles,end_position_long,132197664,semicircles,total_elapsed_time,790.04,s,total_timer_time,790.04,s,total_distance,6453.85,m,unknown,126.0,,unknown,126.0,,unknown,126.0,,unknown,126.0,,message_index,1,,total_calories,77,kcal,avg_speed,8.169,m/s,max_speed,12.549,m/s,avg_power,142,watts,max_power,371,watts,total_ascent,31,m,total_descent,49,m,event,9,,event_type,1,,avg_heart_rate,120,bpm,max_heart_rate,169,bpm,avg_cadence,82,rpm,max_cadence,239,rpm,intensity,0,,lap_trigger,0,,sport,2,,,,,,,,
+#Data,6,lap,timestamp,653066740,s,start_time,653065895,,start_position_lat,711781651,semicircles,start_position_long,131154977,semicircles,end_position_lat,711361999,semicircles,end_position_long,131535685,semicircles,total_elapsed_time,845.34,s,total_timer_time,844.8,s,total_distance,5000.0,m,unknown,126.0,,unknown,126.0,,unknown,126.0,,unknown,126.0,,message_index,0,,total_calories,113,kcal,avg_speed,5.918,m/s,max_speed,15.963,m/s,avg_power,182,watts,max_power,485,watts,total_ascent,96,m,total_descent,61,m,event,9,,event_type,1,,avg_heart_rate,117,bpm,max_heart_rate,146,bpm,avg_cadence,65,rpm,max_cadence,121,rpm,intensity,0,,lap_trigger,2,,sport,2,,,,,,,,
+
+#---------------------------------------------------------------------------
+#read until we find the first lap line and record line
 seek(CSV,0,0);
+my $seenlap;
+my $seenrecord;
 while(<CSV>){
-1;
+   if(m/Data,\d+,lap,/ and !$seenlap){
+      my @l=split /,/;
+      $log->debug("$_");
+      $seenlap=1;
+      #---------------------------------------------------------------------
+      #analyse the record to find the indeces to use
+      for(my $i=0;$i<$#l;$i++){
+         $log->debug("i=$i, l[$i]=$l[$i]\n");
+	 my $field=$l[$i];
+	 if($field eq "timestamp"){
+	    $iTimeLap=$i+1;
+            $log->debug("iTimeLap=$iTimeLap\n");
+	 }
+	 elsif($field eq "start_position_lat"){
+	    $hasGPS=1;
+            $log->debug("i start_position_lat=$i\n");
+	 }
+	 elsif($field eq "start_position_long"){
+	    $hasGPS=1;
+            $log->debug("i start_position_long=$i\n");
+	 }
+	 elsif($field eq "start_time"){
+	    $iStarttimeLap=$i+1;
+            $log->debug("iStarttimeLap=$iStarttimeLap\n");
+	 }
+	 elsif($field eq "total_elapsed_time"){
+	    $iTotalttimesecondsLap=$i+1;
+            $log->debug("iTotalttimesecondsLap=$iTotalttimesecondsLap\n");
+	 }
+	 elsif($field eq "total_distance"){
+	    $iLapdistancemetersLap=$i+1;
+            $log->debug("iLapdistancemetersLap=$iLapdistancemetersLap\n");
+	 }
+	 elsif($field eq "avg_speed"){
+	    $iSpeedavgLap=$i+1;
+            $log->debug("iSpeedavgLap=$iSpeedavgLap\n");
+	 }
+	 elsif($field eq "max_speed"){
+	    $iSpeedmaxLap=$i+1;
+            $log->debug("iSpeedmaxLap=$iSpeedmaxLap\n");
+	 }
+	 elsif($field eq "avg_power"){
+	    $iPoweravgLap=$i+1;
+            $log->debug("iPoweravgLap=$iPoweravgLap\n");
+	 }
+	 elsif($field eq "max_power"){
+	    $iPowermaxLap=$i+1;
+            $log->debug("iPowermaxLap=$iPowermaxLap\n");
+	 }
+	 elsif($field eq "avg_heart_rate"){
+	    $iHeartrateavgLap=$i+1;
+            $log->debug("iHeartrateavgLap=$iHeartrateavgLap\n");
+	 }
+	 elsif($field eq "max_heart_rate"){
+	    $iHeartratemaxLap=$i+1;
+            $log->debug("iHeartratemaxLap=$iHeartratemaxLap\n");
+	 }
+	 elsif($field eq "avg_cadence"){
+	    $iCadenceavgLap=$i+1;
+            $log->debug("iCadenceavgLap=$iCadenceavgLap\n");
+	 }
+	 elsif($field eq "max_cadence"){
+	    $iCadencemaxLap=$i+1;
+            $log->debug("iCadencemaxLap=$iCadencemaxLap\n");
+	 }
+      }
+
+   }
+   if(m/Data,\d+,record,/ and !$seenrecord){
+      my @l=split /,/;
+      $log->debug("$_");
+      $seenrecord=1;
+      #---------------------------------------------------------------------
+      #analyse the record to find the indeces to use
+      for(my $i=0;$i<$#l;$i++){
+         $log->debug("i=$i, l[$i]=$l[$i]\n");
+	 my $field=$l[$i];
+	 if($field eq "timestamp"){
+	    $iTimeRecord=$i+1;
+            $log->debug("iTimeRecord=$iTimeRecord\n");
+	 }
+	 if($field eq "distance"){
+	    $iDistanceRecord=$i+1;
+            $log->debug("iDistanceRecord=$iDistanceRecord\n");
+	 }
+	 elsif($field eq "start_position_lat"){
+	    $hasGPS=1;
+            $log->debug("i start_position_lat=$i\n");
+	 }
+	 elsif($field eq "start_position_long"){
+	    $hasGPS=1;
+            $log->debug("i start_position_long=$i\n");
+	 }
+	 elsif($field eq "altitude"){
+	    $iAltitudeRecord=$i+1;
+            $log->debug("iAltitudeRecord=$iAltitudeRecord\n");
+	 }
+	 elsif($field eq "speed"){
+	    $iSpeedRecord=$i+1;
+            $log->debug("iSpeedRecord=$iSpeedRecord\n");
+	 }
+	 elsif($field eq "heart_rate"){
+	    $iHeartrateRecord=$i+1;
+            $log->debug("iHeartrateRecord=$iHeartrateRecord\n");
+	 }
+	 elsif($field eq "cadence"){
+	    $iCadenceRecord=$i+1;
+            $log->debug("iCadenceRecord=$iCadenceRecord\n");
+	 }
+	 elsif($field eq "temperature"){
+	    $iTemperatureRecord=$i+1;
+            $log->debug("iTemperatureRecord=$iTemperatureRecord\n");
+	 }
+      }
+   }
+   if($seenlap and $seenrecord){
+      last; #skip reading more entries
+   }
 }
+
+#---------------------------------------------------------------------------
+#start from the top of the file again
 seek(CSV,0,0);
 while(<CSV>){
    my @l;
    if(m/Data,\d+,lap,/){
       @l=split /,/;
-      #print strftime("\%H:\%M:\%S", localtime($l[4])),",";
-      #Data,6,lap,timestamp,655399331,s,start_time,655398540,,start_position_lat,711209286,semicircles,start_position_long,131472774,semicircles,end_position_lat,711329772,semicircles,end_position_long,132197664,semicircles,total_elapsed_time,790.04,s,total_timer_time,790.04,s,total_distance,6453.85,m,unknown,126.0,,unknown,126.0,,unknown,126.0,,unknown,126.0,,message_index,1,,total_calories,77,kcal,avg_speed,8.169,m/s,max_speed,12.549,m/s,avg_power,142,watts,max_power,371,watts,total_ascent,31,m,total_descent,49,m,event,9,,event_type,1,,avg_heart_rate,120,bpm,max_heart_rate,169,bpm,avg_cadence,82,rpm,max_cadence,239,rpm,intensity,0,,lap_trigger,0,,sport,2,,,,,,,,
-      $Time=$l[4]+$timeoffsetfit;
-      $StartTime=$l[7]+$timeoffsetfit;
-      $TotalTimeSeconds=$l[22];
-      $LapDistanceMeters=$l[28];
+      #print strftime("\%H:\%M:\%S", localtime($l[$iTimeLap])),",";
+      $Time=$l[$iTimeLap]+$timeoffsetfit;
+      $StartTime=$l[$iStarttimeLap]+$timeoffsetfit;
+      $TotalTimeSeconds=$l[$iTotalttimesecondsLap];
+      $LapDistanceMeters=$l[$iLapdistancemetersLap];
       $exdb{Activity}{$Id}{Lap}{$StartTime}{TotalTimeSeconds}=$TotalTimeSeconds;
       $exdb{Activity}{$Id}{Lap}{$StartTime}{DistanceMeters}=$LapDistanceMeters;
-      my $v_avg=$l[49]; my $v_max=$l[52]; #speed
-      my $p_avg=$l[55]; my $p_max=$l[58]; #power
-      my $h_avg=$l[73]; my $h_max=$l[76]; #heart rate
-      my $c_avg=$l[79]; my $c_max=$l[81]; #cadence
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{SpeedAvg}=$v_avg;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{SpeedMax}=$v_max;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{PowerAvg}=$p_avg;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{PowerMax}=$p_max;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{HeartAvg}=$h_avg;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{HeartMax}=$h_max;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceAvg}=$c_avg;
-      $exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceMax}=$c_max;
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{SpeedAvg}=$l[$iSpeedavgLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{SpeedMax}=$l[$iSpeedmaxLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{PowerAvg}=$l[$iPoweravgLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{PowerMax}=$l[$iPowermaxLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{HeartAvg}=$l[$iHeartrateavgLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{HeartMax}=$l[$iHeartratemaxLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceAvg}=$l[$iCadenceavgLap];
+      $exdb{Activity}{$Id}{Lap}{$StartTime}{CadenceMax}=$l[$iCadencemaxLap];
    }
    elsif(m/Data,\d+,record,/){
       @l=split /,/;
-      #print strftime("\%H:\%M:\%S", localtime($l[4])),",";
-      $Time=$l[4]+$timeoffsetfit;
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$l[13];
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$l[16];
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$l[19];
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Power}=$l[22];
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[25];
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[28];
-      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}=$l[31];
+      #print strftime("\%H:\%M:\%S", localtime($l[$iTimeRecord])),",";
+      $Time=$l[$iTimeRecord]+$timeoffsetfit;
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters}=$l[$iDistanceRecord];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters}=$l[$iAltitudeRecord];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed}=$l[$iSpeedRecord];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Power}=$l[$iPowerRecord];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[$iHeartrateRecord];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[$iCadenceRecord];
+      $exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}=$l[$iTemperatureRecord];
    }
 }
+#---------------------------------------------------------------------------
+#check if we have GPS data
+if($hasGPS){
+   #yes - probably cycling outside, on a bike
+   $exdb{Activity}{$Id}{SportId}=$SportIdCycling;
+}
+else{
+   #yes - probably cycling inside, on a trainer/rollers
+   $exdb{Activity}{$Id}{SportId}=$SportIdCyclotrainer;
+}
+$exdb{Activity}{$Id}{SMode}=$SModeCycling;
 close CSV;
-#for(qw(AltitudeMeters Speed RunCadence HeartRateBpm)){mydump($Id,$_); }
 }
 
 #---------------------------------------------------------------------------
@@ -952,15 +1101,11 @@ if($mode eq "fr310xt"){
 
    #------------------------------------------------------------------------
    parse_tcxfile();
-
-   #------------------------------------------------------------------------
    #gen_tcxfile();
-
-   #------------------------------------------------------------------------
    extrapolate_exdb();
+   populate_hrmdb();
 
    #------------------------------------------------------------------------
-   populate_hrmdb();
    if(user_interaction()){
       gen_hrmfile();
       populate_pddb();
@@ -972,12 +1117,13 @@ if($mode eq "fr310xt"){
 #---------------------------------------------------------------------------
 elsif($mode eq "e500"){
    parse_fitcsvfile();
-   #extrapolate_exdb();
 
    #------------------------------------------------------------------------
    extrapolate_exdb();
    smooth_exdb();
    populate_hrmdb();
+
+   #------------------------------------------------------------------------
    if(user_interaction()){
       gen_hrmfile();
       populate_pddb();
