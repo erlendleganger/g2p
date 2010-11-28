@@ -159,11 +159,10 @@ my $last_val;
          $t_start=$Time if($t_start>$Time);
          $t_end=$Time if($t_end<$Time);
       }
-      #for my $key(qw(AltitudeMeters Speed RunCadence HeartRateBpm Power)){
-      #for my $key(qw(AltitudeMeters Speed HeartRateBpm Power)){
-      #for my $key(qw(HeartRateBpm)){
+      $log->debug("smooth: id=$Id, t_start=",fmt_time($t_start),", t_end=",fmt_time($t_end));
 
       #---------------------------------------------------------------------
+      #smooth out hrm data
       $key="HeartRateBpm";
       $Time=$t_start;
       $last_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
@@ -171,6 +170,8 @@ my $last_val;
          fmt_time($t_start),", last_val=$last_val\n");
       while($Time<=$t_end){
 	 my $cur_val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 #if missing hrm data (<50bpm), then just set the value to the
+	 #previously seen value
 	 if($cur_val<50){
             $log->debug("smooth: key=$key, Time=",fmt_time($Time),
 	       ", old value=$cur_val, new value=$last_val\n");
@@ -316,7 +317,7 @@ sub extrapolate_exdb{
 	    }
 	    else{
 	       $Time++;
-	       $log->debug("expol: ok - Time=$Time",fmt_time($Time));
+	       #$log->debug("expol: ok - Time=$Time",fmt_time($Time));
 	    }
          }
       }
@@ -342,7 +343,7 @@ for $Id(sort keys %{$exdb{Activity}}){
       my $cadence=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence};
       my $altitude=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters};
       my $power=int 0.5+$exdb{Activity}{$Id}{Trackpoint}{$Time}{Power};
-      #print "$Time,$hr,$speed,$cadence,$altitude\n";
+      $log->debug("pop_hrmdb: Time=$Time,hr=$hr,speed=$speed,cad=$cadence,alt=$altitude,power=$power\n");
       push @{$hrmdb{HRData}},[$hr,$speed,$cadence,$altitude,$power]; 
    }
 
@@ -747,7 +748,6 @@ while(<CSV>){
    if(m/Data,\d+,record,/ and !$seenrecord){
       my @l=split /,/;
       $log->debug("$_");
-      $seenrecord=1;
       #---------------------------------------------------------------------
       #analyse the record to find the indeces to use
       for(my $i=0;$i<$#l;$i++){
@@ -777,6 +777,10 @@ while(<CSV>){
 	    $iSpeedRecord=$i+1;
             $log->debug("iSpeedRecord=$iSpeedRecord\n");
 	 }
+	 elsif($field eq "power"){
+	    $iPowerRecord=$i+1;
+            $log->debug("iPowerRecord=$iPowerRecord\n");
+	 }
 	 elsif($field eq "heart_rate"){
 	    $iHeartrateRecord=$i+1;
             $log->debug("iHeartrateRecord=$iHeartrateRecord\n");
@@ -789,6 +793,19 @@ while(<CSV>){
 	    $iTemperatureRecord=$i+1;
             $log->debug("iTemperatureRecord=$iTemperatureRecord\n");
 	 }
+      }
+      if($iDistanceRecord &&
+         $iAltitudeRecord &&
+         $iSpeedRecord &&
+         $iPowerRecord &&
+         $iCadenceRecord &&
+         $iTemperatureRecord &&
+	 1){
+         $seenrecord=1;
+	 $log->debug("all i*Record set, done looking\n");
+      }
+      else{
+	 $log->debug("not all i*Record set, keep looking\n");
       }
    }
    if($seenlap and $seenrecord){
@@ -830,10 +847,13 @@ while(<CSV>){
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm}=$l[$iHeartrateRecord];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[$iCadenceRecord];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}=$l[$iTemperatureRecord];
+
+      $log->debug("parse_fit: t=$Time,d=$exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters},a=$exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters},v=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed},p=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Power},hr=$exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm},cd=$exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence},tmp=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}");
    }
 }
 #---------------------------------------------------------------------------
 #check if we have GPS data
+$log->debug("hasGPS=$hasGPS\n");
 if($hasGPS){
    #yes - probably cycling outside, on a bike
    $exdb{Activity}{$Id}{SportId}=$SportIdCycling;
@@ -843,6 +863,7 @@ else{
    $exdb{Activity}{$Id}{SportId}=$SportIdCyclotrainer;
 }
 $exdb{Activity}{$Id}{SMode}=$SModeCycling;
+$log->debug("SportId=$exdb{Activity}{$Id}{SportId}, SMode= $exdb{Activity}{$Id}{SMode}\n");
 close CSV;
 }
 
@@ -912,16 +933,17 @@ sub end_element{
       $log->debug("Activity completed: Sport=$Sport, Id=$Id\n");
       $exdb{Activity}{$Id}{Sport}=$Sport;
       if($Sport eq "Running"){
+         $log->debug("hasGPS=$hasGPS\n");
          if($hasGPS){
 	    #has GPS data, probably from running outside
 	    $exdb{Activity}{$Id}{SportId}=$SportIdRunning;
-	    $exdb{Activity}{$Id}{SMode}=$SModeRunning;
 	 }
 	 else{
 	    #has no GPS data, probably from running on a treadmill
 	    $exdb{Activity}{$Id}{SportId}=$SportIdTreadmill;
-	    $exdb{Activity}{$Id}{SMode}=$SModeRunning;
 	 }
+	 $exdb{Activity}{$Id}{SMode}=$SModeRunning;
+         $log->debug("SportId=$exdb{Activity}{$Id}{SportId}, SMode= $exdb{Activity}{$Id}{SMode}\n");
       }
       else{
          $log->fatal("Unknown sport!\n");
@@ -1120,7 +1142,7 @@ elsif($mode eq "e500"){
 
    #------------------------------------------------------------------------
    extrapolate_exdb();
-   smooth_exdb();
+   #smooth_exdb();
    populate_hrmdb();
 
    #------------------------------------------------------------------------
