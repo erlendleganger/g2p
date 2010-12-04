@@ -433,7 +433,7 @@ if($answer eq "y"){
    my $note=<STDIN>; chomp $note;
    print "Include laps? [n; all; 1,3,7,...]: ";
    $answer=<STDIN>;chomp $answer;
-   if($answer ne "n"){
+   if($answer ne "n" and $answer ne ""){
       $note.=" Runder: ";
       if($answer eq "all"){
          $note.=join "; ", map{$lapdata{$_}} sort{$a<=>$b}keys %lapdata;
@@ -450,7 +450,7 @@ if($answer eq "y"){
       }
    }
    $hrmdb{NOTE}=$note; #for the pdd file
-   push @{$hrmdb{Note}},[$note]; #for the hrm file
+   #push @{$hrmdb{Note}},[$note]; #for the hrm file
    return 1;
 }
 else{
