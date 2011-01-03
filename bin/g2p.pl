@@ -376,7 +376,7 @@ for $Id(sort keys %{$exdb{Activity}}){
    $hrmdb{DISTANCE}=$totaldistance;
    $hrmdb{STARTTIME}=$firstlapstarttime;
    $hrmdb{TOTALTIME}=$totaltime;
-   #$hrmdb{HRMFILE}=strftime("\%g\%m\%d01.hrm", localtime($firstlapstarttime));
+   #$hrmdb{HRMFILE}=strftime("\%y\%m\%d01.hrm", localtime($firstlapstarttime));
    $hrmdb{PDDFILE}=strftime("\%Y\%m\%d.pdd", localtime($firstlapstarttime));
    $hrmdb{DTG0}=strftime("\%Y\%m\%d", localtime($firstlapstarttime));
    $hrmdb{DTG1}=strftime("\%Y-\%m-\%d", localtime($firstlapstarttime));
@@ -511,13 +511,15 @@ close TCX;
 sub gen_hrmfile{
 #---------------------------------------------------------------------------
 
-my $dtg=strftime("\%g\%m\%d", localtime($hrmdb{STARTTIME}));
+my $dtg=strftime("\%y\%m\%d", localtime($hrmdb{STARTTIME}));
+#$log->debug("gen_hrmfile: hrmdb{STARTTIME}=$hrmdb{STARTTIME}, localtime(.)=", localtime($hrmdb{STARTTIME}));
+$log->debug("gen_hrmfile: dtg=$dtg");
 my $hrmfile="${dtg}01.hrm";
 my $i=2;
 while(-f "$ENV{POLARDIR}/$hrmfile"){
    $hrmfile=sprintf "$dtg%02d.hrm", $i++;
 }
-#print "hrmfile=$hrmfile\n";
+$log->debug("gen_hrmfile: hrmfile=$hrmfile");
 $hrmdb{HRMFILE}=$hrmfile;
 open HRM,">$ENV{POLARDIR}/$hrmfile" or die "cannot create $hrmfile";
 print "creating $hrmfile...\n";
