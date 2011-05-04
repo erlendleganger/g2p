@@ -411,7 +411,8 @@ for $Id(sort keys %{$exdb{Activity}}){
       $lapstr.=sprintf(", %.1fkm, ",$distkm);
       if($exdb{Activity}{$Id}{SportId} eq $SportIdRunning or 
         $exdb{Activity}{$Id}{SportId} eq $SportIdTreadmill){
-         $lapstr.=strftime("\%M:\%Smin/km",gmtime($seconds/$distkm));
+         $lapstr.=strftime("\%M:\%Smin/km",gmtime($seconds/$distkm))
+	    if($distkm>0);
       }
       else{
          $lapstr.=sprintf("%.1fkm/t, ",$distkm/($seconds/3600.0));
@@ -549,8 +550,11 @@ sub gen_pddfile{
 my $pddfile="$hrmdb{PDDFILE}";
 open PDD,">$ENV{POLARDIR}/$pddfile" or die "cannot create $pddfile";
 print "updating $pddfile...\n";
-for my $s(qw(DayInfo), sort @{$pddb{EXERCISEINFOLIST}}){
+for my $s(qw(DayInfo), 
+            @{$pddb{EXERCISEINFOLIST}},
+            @{$pddb{EXEPLANINFOLIST}}){
    print PDD qq([$s]\n);
+   $log->debug("gen_pddfile: section=$s");
    for my $aref(@{$pddb{$s}}){
       my $l=join "\t",@$aref;
       print PDD "$l\n";
@@ -572,8 +576,15 @@ if(-f $pddfile){
       chomp;
       if(m/\[(.*)\]/){
          $section=$1;
-         push @{$pddb{EXERCISEINFOLIST}},$section if($section=~m/ExerciseInfo/);
-         $pddb{EXERCISECOUNT}++ if($section=~m/ExerciseInfo/);
+         $log->debug("populate_pddb: section=$section");
+         if($section=~m/ExerciseInfo/){
+            push @{$pddb{EXERCISEINFOLIST}},$section;
+            $pddb{EXERCISECOUNT}++;
+	 }
+         if($section=~m/ExePlanInfo/){
+            push @{$pddb{EXEPLANINFOLIST}},$section;
+            $pddb{EXEPLANCOUNT}++;
+	 }
       }
       else{
          push @{$pddb{$section}},[split /\t/,$_] if ($section);
@@ -582,6 +593,8 @@ if(-f $pddfile){
    close PDD;
 }
 
+#---------------------------------------------------------------------------
+#add a new ExerciseInfo section for the exercise added now
 my $i=1;
 my $e="ExerciseInfo$i";
 while(defined $pddb{$e}){
