@@ -574,19 +574,29 @@ if(-f $pddfile){
    my $section;
    while(<PDD>){
       chomp;
+      #---------------------------------------------------------------------
+      #search for [DayInfo], [ExerciseInfo1], [ExePlanInfo1] etc
       if(m/\[(.*)\]/){
          $section=$1;
          $log->debug("populate_pddb: section=$section");
+
+         #------------------------------------------------------------------
+	 #save the list of ExerciseInfo1,2,3,... sections seen
          if($section=~m/ExerciseInfo/){
             push @{$pddb{EXERCISEINFOLIST}},$section;
             $pddb{EXERCISECOUNT}++;
 	 }
+         #------------------------------------------------------------------
+	 #save the list of ExePlanInfo1,2,3,... sections seen
          if($section=~m/ExePlanInfo/){
             push @{$pddb{EXEPLANINFOLIST}},$section;
             $pddb{EXEPLANCOUNT}++;
 	 }
       }
       else{
+         #------------------------------------------------------------------
+         #not a section line, so push the contents of the line onto the
+	 #array of arrays defined for the hash entry for this section
          push @{$pddb{$section}},[split /\t/,$_] if ($section);
       }
    }
@@ -594,53 +604,61 @@ if(-f $pddfile){
 }
 
 #---------------------------------------------------------------------------
-#add a new ExerciseInfo section for the exercise added now
+#add a new ExerciseInfo section for the exercise added now; must increase
+#the section number by one first..
 my $i=1;
 my $e="ExerciseInfo$i";
 while(defined $pddb{$e}){
    $e="ExerciseInfo". ++$i;
 }
+
+#---------------------------------------------------------------------------
+#add the section here, and then a list of dummy data (for now)
 push @{$pddb{EXERCISEINFOLIST}},$e;
 $pddb{EXERCISECOUNT}++;
 #print "count=$pddb{EXERCISECOUNT}\n";
-push @{$pddb{$e}},[101,1,24,6,12,512],
+push @{$pddb{$e}},[101,1,24,6,12,512], #row 0
 [0,0,0,int($hrmdb{DISTANCE}),
-int($hrmdb{STARTTIME}-str2time(strftime("\%Y-\%m-\%dT00:00:00", localtime($hrmdb{STARTTIME})))),
-int($hrmdb{TOTALTIME})],
-[$hrmdb{SPORTID},77,0,2,0,364],
-[int($hrmdb{DISTANCE}),0,0,0,0,55],
-[2,0,0,0,0,0],
-[0,0,0,0,56,174],
-[2540,0,0,0,0,10007],
-[0,0,0,0,1,2],
-[0,0,0,0,1,0],
-[131,163,100,156,75,81],
-[91,117,0,0,0,0],
-[0,0,0,0,0,45],
-[473,0,6050,0,0,364],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[0,0,0,0,0,0],
-[$hrmdb{EXERCISE}],
-[$hrmdb{NOTE}],
-[$hrmdb{HRMFILE}],
-[],
-[],
-[],
-[],
-[],
-[],
-[],
-;
+int($hrmdb{STARTTIME} -
+   str2time(strftime("\%Y-\%m-\%dT00:00:00", localtime($hrmdb{STARTTIME})))),
+int($hrmdb{TOTALTIME})], #row 1
+[$hrmdb{SPORTID},77,0,2,0,364], #row 2
+[int($hrmdb{DISTANCE}),0,0,0,0,55], #row 3
+[2,0,0,0,0,0], #row 4
+[0,0,0,0,56,174], #row 5
+[2540,0,0,0,0,10007], #row 6
+[0,0,0,0,1,2], #row 7
+[0,0,0,0,1,0], #row 8
+[131,163,100,156,75,81], #row 9
+[91,117,0,0,0,0], #row 10
+[0,0,0,0,0,45], #row 11
+[473,0,6050,0,0,364], #row 12
+[0,0,0,0,0,0], #row 13
+[0,0,0,0,0,0], #row 14
+[0,0,0,0,0,0], #row 15
+[0,0,0,0,0,0], #row 16
+[0,0,0,0,0,0], #row 17
+[0,0,0,0,0,0], #row 18
+[0,0,0,0,0,0], #row 19
+[0,0,0,0,0,0], #row 20
+[0,0,0,0,0,0], #row 21
+[0,0,0,0,0,0], #row 22
+[0,0,0,0,0,0], #row 23
+[0,0,0,0,0,0], #row 24
+[$hrmdb{EXERCISE}], #text row 0
+[$hrmdb{NOTE}],     #text row 1
+[$hrmdb{HRMFILE}],  #text row 2
+[], #text row 3
+[], #text row 4
+[], #text row 5
+[], #text row 6
+[], #text row 7
+[], #text row 8
+[], #text row 9
+[], #text row 10
+[], #text row 11
+[], #text row 12
+; 
 if(!defined $pddb{DayInfo}){
 push @{$pddb{DayInfo}},[100,1,7,6,1,512],
 [$hrmdb{DTG0},$pddb{EXERCISECOUNT},0,0,0,0],
