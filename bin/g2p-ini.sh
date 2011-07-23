@@ -1,4 +1,9 @@
 #---------------------------------------------------------------------------
+#version information
+export g2pvernum="1.0"
+export g2pverdate="2011-07-23"
+
+#---------------------------------------------------------------------------
 #array with types of device to pick up data from
 aID=(
 fr310xt 
