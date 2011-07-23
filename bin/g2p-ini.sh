@@ -1,21 +1,43 @@
 #---------------------------------------------------------------------------
-aID=(fr310xt e500 tacx)
+#version information
+export g2pvernum="1.1"
+export g2pverdate="2011-07-23"
 
 #---------------------------------------------------------------------------
+#array with types of device to pick up data from
+aID=(
+fr310xt 
+e500
+e500
+tacx)
+
+#---------------------------------------------------------------------------
+#array with source directories for the device types above - must match
+#one-to-one with the aID array
 aSRCDIR=(
 C:\\Users\\Erlend\\AppData\\Roaming\\GARMIN\\Devices\\3683510935\\History
 D:\\bruker\\erlend\\personlig\\trening\\garmin\\enhet\\edge500\\Garmin\\Activities
+D:\\user\\Erlend\\personal\\trening\\garmin\\enhet\\edge500\\Garmin\\Activities
 \\\\sempron3000\\Public\\tacx
 )
 
 #---------------------------------------------------------------------------
-aPATTERN=(*.TCX *.fit *.hrm)
+#file name patterns for files to pick up from the aSRCDIR entries above;
+#must match one-to-one with the aID and aSRCDIR arrays
+aPATTERN=(
+*.TCX
+*.fit
+*.fit
+*.hrm)
 
 #---------------------------------------------------------------------------
+#find target directory for the generated Polar files
 export POLARDIR="testdata\\Erlend Leganger\\$(date "+%Y")"
-export POLARDIR=/cygdrive/c/tmp
-export POLARDIR="D:\\user\\elega\\personal\\trening\\polar\\Erlend Leganger\\$(date "+%Y")"
-export POLARDIR="D:\\bruker\\erlend\\personlig\\trening\\polar\\Erlend Leganger\\$(date "+%Y")"
+export POLARDIR="unset"
+dir=D:\\bruker\\erlend\\personlig\\trening\\polar\\Erlend\ Leganger\\$(date "+%Y")
+[ -d "$dir" ] && POLARDIR=$dir
+dir=D:\\user\\Erlend\\personal\\trening\\polar\\Erlend\ Leganger\\$(date "+%Y")
+[ -d "$dir" ] && POLARDIR=$dir
 
 #---------------------------------------------------------------------------
 #get_timestamp_filename

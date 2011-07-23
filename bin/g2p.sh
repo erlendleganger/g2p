@@ -48,6 +48,18 @@ echo loading $SHCFGFILE...
 source $SHCFGFILE
 
 #---------------------------------------------------------------------------
+#check that version is set
+if [ -z "$g2pvernum" ]; then
+   echo "error - version number g2pvernum is not set"
+   exit 1
+fi
+
+#---------------------------------------------------------------------------
+#display version information
+echo $L
+echo $(basename $0): version $g2pvernum, $g2pverdate
+
+#---------------------------------------------------------------------------
 #parse parameters?
 
 #---------------------------------------------------------------------------
