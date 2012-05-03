@@ -7,19 +7,22 @@ export g2pverdate="2011-07-23"
 #array with types of device to pick up data from
 aID=(
 fr310xt 
-e500
-e500
-tacx)
+e800
+)
+#e500
+#tacx
 
 #---------------------------------------------------------------------------
 #array with source directories for the device types above - must match
 #one-to-one with the aID array
 aSRCDIR=(
-C:\\Users\\Erlend\\AppData\\Roaming\\GARMIN\\Devices\\3683510935\\History
-D:\\bruker\\erlend\\personlig\\trening\\garmin\\enhet\\edge500\\Garmin\\Activities
-D:\\user\\Erlend\\personal\\trening\\garmin\\enhet\\edge500\\Garmin\\Activities
-\\\\sempron3000\\Public\\tacx
+C:\\Users\\Erlend\\AppData\\Roaming\\GARMIN\\Devices\\3842636421\\History
+D:\\bruker\\erlend\\personlig\\trening\\garmin\\enhet\\edge800\\Garmin\\Activities
 )
+#C:\\Users\\Erlend\\AppData\\Roaming\\GARMIN\\Devices\\3683510935\\History
+#D:\\bruker\\erlend\\personlig\\trening\\garmin\\enhet\\edge500\\Garmin\\Activities
+#D:\\user\\Erlend\\personal\\trening\\garmin\\enhet\\edge500\\Garmin\\Activities
+#\\\\sempron3000\\Public\\tacx
 
 #---------------------------------------------------------------------------
 #file name patterns for files to pick up from the aSRCDIR entries above;

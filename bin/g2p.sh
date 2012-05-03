@@ -97,7 +97,7 @@ while [ $I -lt ${#aID[@]} ]; do
          echo $L
          echo file: $(basename $INFILE)
 	 #unpack fit file for Edge 500
-	 [ $ID = "e500" ] && unpack_fit_file $INFILE
+	 [ $ID = "e500" -o $ID = "e800" ] && unpack_fit_file $INFILE
          export INFILE
          export INFILEBASE=$(basename $INFILE)
          perl $PLFILE
