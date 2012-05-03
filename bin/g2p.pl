@@ -14,6 +14,7 @@ my $SportIdRunning=1;
 my $SportIdTreadmill=8;
 my $SportIdCycling=2;
 my $SportIdCyclotrainer=7;
+my $SportIdCore=10;
 my $SModeRunning="111000100";
 my $SModeCycling="111111100";
 
@@ -978,8 +979,12 @@ sub end_element{
 	 $exdb{Activity}{$Id}{SMode}=$SModeRunning;
          $log->debug("SportId=$exdb{Activity}{$Id}{SportId}, SMode= $exdb{Activity}{$Id}{SMode}\n");
       }
+      elsif($Sport eq "Other"){
+	 $exdb{Activity}{$Id}{SportId}=$SportIdCore;
+         $log->debug("SportId=$exdb{Activity}{$Id}{SportId}, SMode= $exdb{Activity}{$Id}{SMode}\n");
+      }
       else{
-         $log->fatal("Unknown sport!\n");
+         $log->fatal("Unknown sport: $Sport!\n");
 	 exit 1;
       }
    }
@@ -1170,7 +1175,7 @@ if($mode eq "fr310xt"){
 }
 
 #---------------------------------------------------------------------------
-elsif($mode eq "e500"){
+elsif($mode eq "e500" or $mode eq "e800"){
    parse_fitcsvfile();
 
    #------------------------------------------------------------------------
