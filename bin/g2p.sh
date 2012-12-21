@@ -77,6 +77,7 @@ fi
 #---------------------------------------------------------------------------
 I=0
 while [ $I -lt ${#aID[@]} ]; do
+
    #------------------------------------------------------------------------
    export ID=${aID[$I]}
    SRCDIR=${aSRCDIR[$I]}
@@ -88,16 +89,18 @@ while [ $I -lt ${#aID[@]} ]; do
    #------------------------------------------------------------------------
    echo $L
    if [ -d $SRCDIR ]; then
-      #------------------------------------------------------------------------
+      #---------------------------------------------------------------------
       [ -f $TIMESTAMP ] || date>$TIMESTAMP
 
-      #------------------------------------------------------------------------
+      #---------------------------------------------------------------------
       echo searching $SRCDIR...
       for INFILE in $(find $SRCDIR -type f -prune -name "$PATTERN" -newer $TIMESTAMP); do
          echo $L
          echo file: $(basename $INFILE)
-	 #unpack fit file for Edge 500
-	 [ $ID = "e500" -o $ID = "e800" ] && unpack_fit_file $INFILE
+	 #unpack fit files
+         if [ $ID = "e500" -o $ID = "e800" -o $ID = "910xt" ]; then
+	    unpack_fit_file $INFILE
+	 fi
          export INFILE
          export INFILEBASE=$(basename $INFILE)
          perl $PLFILE

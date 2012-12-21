@@ -698,7 +698,7 @@ my $iCadenceavgLap; my $iCadencemaxLap;
 
 my $iDistanceRecord; my $iSpeedRecord; my $iHeartrateRecord; 
 my $iCadenceRecord; my $iTemperatureRecord; my $iAltitudeRecord; 
-my $iPowerRecord;
+my $iPowerRecord; my $iSportRecord;
 
 #---------------------------------------------------------------------------
 #sample entries in the fit csv file:
@@ -827,6 +827,10 @@ while(<CSV>){
 	    $iTemperatureRecord=$i+1;
             $log->debug("iTemperatureRecord=$iTemperatureRecord\n");
 	 }
+	 elsif($field eq "sport"){
+	    $iSportRecord=$i+1;
+            $log->debug("iSportRecord=$iSportRecord\n");
+	 }
       }
       if($iDistanceRecord &&
          $iAltitudeRecord &&
@@ -882,23 +886,45 @@ while(<CSV>){
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence}=$l[$iCadenceRecord];
       $exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}=$l[$iTemperatureRecord];
 
-      $log->debug("parse_fit: t=$Time,d=$exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters},a=$exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters},v=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed},p=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Power},hr=$exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm},cd=$exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence},tmp=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}");
+      #$log->debug("parse_fit: t=$Time,d=$exdb{Activity}{$Id}{Trackpoint}{$Time}{DistanceMeters},a=$exdb{Activity}{$Id}{Trackpoint}{$Time}{AltitudeMeters},v=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Speed},p=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Power},hr=$exdb{Activity}{$Id}{Trackpoint}{$Time}{HeartRateBpm},cd=$exdb{Activity}{$Id}{Trackpoint}{$Time}{RunCadence},tmp=$exdb{Activity}{$Id}{Trackpoint}{$Time}{Temperature}");
    }
 }
-#---------------------------------------------------------------------------
-#check if we have GPS data
-$log->debug("hasGPS=$hasGPS\n");
-if($hasGPS){
-   #yes - probably cycling outside, on a bike
-   $exdb{Activity}{$Id}{SportId}=$SportIdCycling;
-}
-else{
-   #yes - probably cycling inside, on a trainer/rollers
-   $exdb{Activity}{$Id}{SportId}=$SportIdCyclotrainer;
-}
-$exdb{Activity}{$Id}{SMode}=$SModeCycling;
-$log->debug("SportId=$exdb{Activity}{$Id}{SportId}, SMode= $exdb{Activity}{$Id}{SMode}\n");
 close CSV;
+
+#---------------------------------------------------------------------------
+#determine the sport
+$fitcsvfile="$ENV{FITCSVDIR}/$ENV{INFILEBASE}_laps.csv";
+open CSV, "<$fitcsvfile" or die "cannot open $fitcsvfile";
+my @l;
+while(<CSV>){
+   @l=split /,/;
+}
+my $text=$l[3];
+$log->debug("text=$text\n");
+if($text eq "OTHER"){
+   $exdb{Activity}{$Id}{SportId}=$SportIdCore;
+   #$exdb{Activity}{$Id}{SMode}=????;
+}
+elsif($text eq "RUNNING"){
+   if($hasGPS){
+      $exdb{Activity}{$Id}{SportId}=$SportIdRunning;
+   }
+   else{
+      $exdb{Activity}{$Id}{SportId}=$SportIdTreadmill;
+   }
+   $exdb{Activity}{$Id}{SMode}=$SModeRunning;
+}
+elsif($text eq "CYCLING"){
+   if($hasGPS){
+      $exdb{Activity}{$Id}{SportId}=$SportIdCycling;
+   }
+   else{
+      $exdb{Activity}{$Id}{SportId}=$SportIdCyclotrainer;
+   }
+   $exdb{Activity}{$Id}{SMode}=$SModeCycling;
+}
+
+$log->debug("SportId=$exdb{Activity}{$Id}{SportId}, SMode= $exdb{Activity}{$Id}{SMode}\n");
 }
 
 #---------------------------------------------------------------------------
@@ -1157,6 +1183,9 @@ $log->trace("INFILEBASE=$ENV{INFILEBASE}\n");
 
 #---------------------------------------------------------------------------
 my $mode=$ENV{ID};
+
+#---------------------------------------------------------------------------
+#process tcx files
 if($mode eq "fr310xt"){
 
    #------------------------------------------------------------------------
@@ -1175,7 +1204,13 @@ if($mode eq "fr310xt"){
 }
 
 #---------------------------------------------------------------------------
-elsif($mode eq "e500" or $mode eq "e800"){
+#process fit files
+elsif($mode eq "e500" or
+      $mode eq "e800" or
+      $mode eq "910xt" or
+      1==2){
+
+   #------------------------------------------------------------------------
    parse_fitcsvfile();
 
    #------------------------------------------------------------------------
