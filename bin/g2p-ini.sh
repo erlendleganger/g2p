@@ -37,11 +37,12 @@ aPATTERN=(
 
 #---------------------------------------------------------------------------
 #find target directory for the generated Polar files
-export POLARDIR="testdata\\Erlend Leganger\\$(date "+%Y")"
+year=$(date "+%Y")
+#year=2012 #activate this for sessions made before and logged after 1 jan
 export POLARDIR="unset"
-dir=D:\\bruker\\erlend\\personlig\\trening\\polar\\Erlend\ Leganger\\$(date "+%Y")
+dir=D:\\bruker\\erlend\\personlig\\trening\\polar\\Erlend\ Leganger\\$year
 [ -d "$dir" ] && POLARDIR=$dir
-dir=D:\\user\\Erlend\\personal\\trening\\polar\\Erlend\ Leganger\\$(date "+%Y")
+dir=D:\\user\\Erlend\\personal\\trening\\polar\\Erlend\ Leganger\\$year
 [ -d "$dir" ] && POLARDIR=$dir
 
 #---------------------------------------------------------------------------
