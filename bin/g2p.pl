@@ -19,6 +19,14 @@ my $SModeRunning="111000100";
 my $SModeCycling="111111100";
 
 #---------------------------------------------------------------------------
+my %guitext;
+$guitext{sport}{$SportIdRunning}="Running";
+$guitext{sport}{$SportIdTreadmill}="Treadmill";
+$guitext{sport}{$SportIdCycling}="Cycling";
+$guitext{sport}{$SportIdCyclotrainer}="Cyclotrainer";
+$guitext{sport}{$SportIdCore}="Core";
+
+#---------------------------------------------------------------------------
 my $timeoffsetfit=str2time("1989-12-31T00:00:00Z");
 my %exdb;
 my %hrmdb;
@@ -391,6 +399,7 @@ sub user_interaction{
 print  "$l";
 print  "Date....: ",strftime("\%Y-\%m-\%d",localtime($hrmdb{STARTTIME})),"\n";
 print  "Start...: ",strftime("\%H:\%M",localtime($hrmdb{STARTTIME})),"\n";
+print  "Sport...: ",$guitext{sport}{$hrmdb{SPORTID}},"\n";
 print  "Duration: $hrmdb{Params}{Length}{payload}\n";
 printf "Distance: %.1fkm\n", $hrmdb{DISTANCE}/1000.0;
 my $lapnum;
@@ -901,7 +910,7 @@ while(<CSV>){
 }
 my $text=$l[3];
 $log->debug("text=$text\n");
-if($text eq "OTHER"){
+if($text eq "GENERIC"){
    $exdb{Activity}{$Id}{SportId}=$SportIdCore;
    #$exdb{Activity}{$Id}{SMode}=????;
 }
