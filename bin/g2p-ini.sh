@@ -1,7 +1,7 @@
 #---------------------------------------------------------------------------
 #version information
-export g2pvernum="1.1"
-export g2pverdate="2011-07-23"
+export g2pvernum="1.2"
+export g2pverdate="2013-01-01"
 
 #---------------------------------------------------------------------------
 #array with types of device to pick up data from
