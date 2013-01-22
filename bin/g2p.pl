@@ -14,6 +14,7 @@ my $SportIdRunning=1;
 my $SportIdTreadmill=8;
 my $SportIdCycling=2;
 my $SportIdCyclotrainer=7;
+my $SportIdSwimming=3;
 my $SportIdCore=10;
 my $SModeRunning="111000100";
 my $SModeCycling="111111100";
@@ -25,6 +26,7 @@ $guitext{sport}{$SportIdTreadmill}="Treadmill";
 $guitext{sport}{$SportIdCycling}="Cycling";
 $guitext{sport}{$SportIdCyclotrainer}="Cyclotrainer";
 $guitext{sport}{$SportIdCore}="Core";
+$guitext{sport}{$SportIdSwimming}="Swimming";
 
 #---------------------------------------------------------------------------
 my $timeoffsetfit=str2time("1989-12-31T00:00:00Z");
@@ -913,6 +915,9 @@ $log->debug("text=$text\n");
 if($text eq "GENERIC"){
    $exdb{Activity}{$Id}{SportId}=$SportIdCore;
    #$exdb{Activity}{$Id}{SMode}=????;
+}
+elsif($text eq "SWIMMING"){
+   $exdb{Activity}{$Id}{SportId}=$SportIdSwimming;
 }
 elsif($text eq "RUNNING"){
    if($hasGPS){
