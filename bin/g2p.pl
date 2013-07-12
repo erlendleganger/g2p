@@ -537,20 +537,20 @@ $hrmdb{HRMFILE}=$hrmfile;
 open HRM,">$ENV{POLARDIR}/$hrmfile" or die "cannot create $hrmfile";
 print "creating $hrmfile...\n";
 for my $s(qw(Params)){
-   print HRM qq([$s]\n);
+   print HRM qq([$s]\r\n);
    for my $key(sort{$hrmdb{$s}{$a}{order} <=> $hrmdb{$s}{$b}{order}} keys %{$hrmdb{$s}}){
-      print HRM qq($key=$hrmdb{$s}{$key}{payload}\n);
+      print HRM qq($key=$hrmdb{$s}{$key}{payload}\r\n);
    }
-   print HRM "\n";
+   print HRM "\r\n";
 }
 for my $s(qw(Note IntTimes ExtraData Summary-123 Summary-TH
              HRZones SwapTimes Trip HRData)){
-   print HRM qq([$s]\n);
+   print HRM qq([$s]\r\n);
    for my $aref(@{$hrmdb{$s}}){
       my $l=join "\t",@$aref;
-      print HRM "$l\n";
+      print HRM "$l\r\n";
    }
-   print HRM "\n";
+   print HRM "\r\n";
 }
 
 close HRM;
@@ -565,13 +565,13 @@ print "updating $pddfile...\n";
 for my $s(qw(DayInfo), 
             @{$pddb{EXERCISEINFOLIST}},
             @{$pddb{EXEPLANINFOLIST}}){
-   print PDD qq([$s]\n);
+   print PDD qq([$s]\r\n);
    $log->debug("gen_pddfile: section=$s");
    for my $aref(@{$pddb{$s}}){
       my $l=join "\t",@$aref;
-      print PDD "$l\n";
+      print PDD "$l\r\n";
    }
-   print PDD "\n";
+   print PDD "\r\n";
 }
 close PDD;
 }
