@@ -18,6 +18,7 @@ my $SportIdSwimming=3;
 my $SportIdCore=10;
 my $SModeRunning="111000100";
 my $SModeCycling="111111100";
+my $interactive="";
 
 #---------------------------------------------------------------------------
 my %guitext;
@@ -439,6 +440,7 @@ for $Id(sort keys %{$exdb{Activity}}){
 #print  "Exercise: "; $hrmdb{EXERCISE}=<STDIN>; chomp $hrmdb{EXERCISE};
 
 #---------------------------------------------------------------------------
+return 1 if(!$interactive);
 print  "${l}Add this session to Polar ProTrainer? [y, n] ";
 my $answer=<STDIN>;chomp $answer;
 if($answer eq "y"){
