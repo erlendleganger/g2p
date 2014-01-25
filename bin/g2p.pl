@@ -627,6 +627,10 @@ while(defined $pddb{$e}){
 }
 
 #---------------------------------------------------------------------------
+#set distance to 0 for Core workout
+#$hrmdb{DISTANCE}=0 if ($hrmdb{SPORTID} == $SportIdCore);
+
+#---------------------------------------------------------------------------
 #add the section here, and then a list of dummy data (for now)
 push @{$pddb{EXERCISEINFOLIST}},$e;
 $pddb{EXERCISECOUNT}++;
@@ -636,7 +640,7 @@ push @{$pddb{$e}},[101,1,24,6,12,512], #row 0
 int($hrmdb{STARTTIME} -
    str2time(strftime("\%Y-\%m-\%dT00:00:00", localtime($hrmdb{STARTTIME})))),
 int($hrmdb{TOTALTIME})], #row 1
-[$hrmdb{SPORTID},77,0,2,0,364], #row 2
+[$hrmdb{SPORTID},0,0,2,0,364], #row 2
 [int($hrmdb{DISTANCE}),0,0,0,0,55], #row 3
 [2,0,0,0,0,0], #row 4
 [0,0,0,0,56,174], #row 5
