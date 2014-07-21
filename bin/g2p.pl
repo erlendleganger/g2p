@@ -4,7 +4,7 @@ use XML::Parser::Expat;
 use HTTP::Date;
 use Data::Dumper;
 use POSIX qw{strftime}; 
-use Log::Log4perl;
+use Log::Log4perl qw(:levels);
 $Data::Dumper::Indent = 1;
 my %db;
 my $currval;
@@ -251,11 +251,12 @@ my $last_val;
 
    }
 }
-         
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 sub extrapolate_exdb{
+   my $loglevel=$log->level();
+   $log->level($DEBUG);
    for $Id(sort keys %{$exdb{Activity}}){
       #get start and end time
       my $t_start=1e20;
@@ -268,7 +269,7 @@ sub extrapolate_exdb{
       $log->debug("expol: Id=$Id\n");
       $log->debug("expol: t_start=",fmt_time($t_start),"\n");
       $log->debug("expol: t_end=",fmt_time($t_end),"\n");
-      $log->debug("expol: diff=",$t_end-$t_start,"\n");
+      $log->debug("expol: t_diff=",$t_end-$t_start,"\n");
       for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
 
          #------------------------------------------------------------------
@@ -287,8 +288,111 @@ sub extrapolate_exdb{
 	 my $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
 	 $log->debug("Time=",fmt_time($Time),", v_start=$v_start\n");
 	 while(--$Time ge $t_start){
-	    $log->debug("expol: start - setting $key=$v_start for Time=",
-	    fmt_time($Time),"\n");
+	    $log->debug("expol: start - setting $key=$v_start for Time=", fmt_time($Time),"\n");
+	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
+	 }
+
+         #------------------------------------------------------------------
+	 #make sure last trackpoint has a value for this key
+	 $Time=$t_end;
+         while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time--;}
+	 my $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $log->debug("expol: Time=",fmt_time($Time),
+	    ", v_end=$v_end\n");
+	 while(++$Time le $t_end){
+	    $log->debug("expol: end - setting $key=$v_end for Time=",
+	       fmt_time($Time),"\n");
+	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_end;
+	 }
+         
+         #------------------------------------------------------------------
+         #if($key(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
+         $log->debug("expol: adjusting $key");
+         $Time=$t_start;
+         my $v_last=$v_start;
+         $log->debug("expol: initial v_last=$v_last");
+
+         while($Time<=$t_end){
+            my $val=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+            if((0 or
+                  $key eq qw(HeartRateBpm) or
+                  $key eq qw(AltitudeMeters) or
+                  $key eq qw(Speed) or
+                  0) and
+               (!defined $val or $val==0)
+            ){
+               $log->debug("expol: key=$key, Time=",fmt_time($Time),
+                  ", replaced null with $v_last");
+               $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_last;
+            }
+            elsif((0 or
+                  $key eq qw(Speed) or
+                  0) and
+               ($val>100)
+            ){
+               $log->debug("expol: Time=",fmt_time($Time),
+                  ", replaced speed $val with $v_last");
+               $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_last;
+            }
+            elsif((0 or
+                  $key eq qw(AltitudeMeters) or
+                  0) and
+               ($val>$v_last+100)
+            ){
+               $log->debug("expol: Time=",fmt_time($Time),
+                  ", replaced altitude $val with $v_last");
+               $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_last;
+            }
+
+            else{
+               $v_last=$val
+            }
+            $Time++;
+         }
+
+      }
+   }
+   $log->level($loglevel);
+}
+
+#---------------------------------------------------------------------------
+#currently not used
+#---------------------------------------------------------------------------
+sub extrapolate_exdb_bad{
+   my $loglevel=$log->level();
+   $log->level($DEBUG);
+   for $Id(sort keys %{$exdb{Activity}}){
+      #get start and end time
+      my $t_start=1e20;
+      my $t_end=-1;
+      for $Time(keys %{$exdb{Activity}{$Id}{Trackpoint}}){
+         $t_start=$Time if($t_start>$Time);
+         $t_end=$Time if($t_end<$Time);
+      }
+
+      $log->debug("expol: Id=$Id\n");
+      $log->debug("expol: t_start=",fmt_time($t_start),"\n");
+      $log->debug("expol: t_end=",fmt_time($t_end),"\n");
+      $log->debug("expol: t_diff=",$t_end-$t_start,"\n");
+      for my $key(qw(AltitudeMeters Speed DistanceMeters RunCadence HeartRateBpm)){
+
+         #------------------------------------------------------------------
+	 $log->debug("expol: current key=$key");
+
+         #------------------------------------------------------------------
+	 #make sure first trackpoint has a value for this key
+	 $Time=$t_start;
+         while($Time < $t_end && 
+	    !defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){$Time++;}
+         if($Time==$t_end){
+	    #no values found, skip to next key
+	    $log->debug("expol: no values found for key=$key");
+	    next;
+	 }
+	 my $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	 $log->debug("Time=",fmt_time($Time),", v_start=$v_start\n");
+	 while(--$Time ge $t_start){
+	    $log->debug("expol: start - setting $key=$v_start for Time=", fmt_time($Time),"\n");
 	    $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}=$v_start;
 	 }
 
@@ -309,31 +413,35 @@ sub extrapolate_exdb{
 	 my $t_missing="";
 	 $Time=$t_start;
          while($Time<=$t_end){
-            if(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
+	    $v_start=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
+	    $log->debug("expol: Time=",fmt_time($Time),", val=$v_start");
+            if(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key} 
+               #or $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}==0
+             ){
 	       $t_missing=$Time;
 	       $Time++;
                while(!defined $exdb{Activity}{$Id}{Trackpoint}{$Time}{$key}){
 	          $Time++;
-	          $log->debug("expol: hunting, Time=$Time",fmt_time($Time));
+	          $log->debug("expol: hunting, Time=",fmt_time($Time));
                }
                $v_start=$exdb{Activity}{$Id}{Trackpoint}{$t_missing-1}{$key};
                $v_end=$exdb{Activity}{$Id}{Trackpoint}{$Time}{$key};
 	       $log->debug("expol: t_missing=",
-	          fmt_time($t_missing),", Time=",fmt_time($Time),
-	          " , v_start=$v_start, v_end=$v_end\n");
+	          fmt_time($t_missing),", Time=",fmt_time($Time), " , v_start=$v_start, v_end=$v_end\n");
 	      for(my $t=0;$t<$Time-$t_missing;$t++){
 	         my $v=$v_start+($v_end-$v_start)/($Time-$t_missing+1)*($t+1);
-	         $log->debug("expol: t=$t, v=$v");
-                 $exdb{Activity}{$Id}{Trackpoint}{$t_missing+$t}{$key}=$v;
+                 my $t_new=$t_missing+$t;
+	         $log->debug("expol: for t=$t_new set v=$v");
+                 $exdb{Activity}{$Id}{Trackpoint}{$t_new}{$key}=$v;
 	      }
 	    }
 	    else{
 	       $Time++;
-	       #$log->debug("expol: ok - Time=$Time",fmt_time($Time));
 	    }
          }
       }
    }
+   $log->level($loglevel);
 }
          
 #---------------------------------------------------------------------------
@@ -1156,8 +1264,8 @@ sub end_element{
 #---------------------------------------------------------------------------
 #set up the logger
 my $conf=q(
-#level: one of DEBUG, INFO, WARN, ERROR, FATAL:
-log4perl.rootLogger              = DEBUG, myLog
+#level: one of ALL,TRACE,DEBUG,INFO,WARN,ERROR,FATAL,OFF:
+log4perl.rootLogger              = INFO, myLog
 log4perl.appender.myLog          = Log::Log4perl::Appender::File
 log4perl.appender.myLog.filename = /tmp/g2p.log
 log4perl.appender.myLog.mode     = clobber
@@ -1171,11 +1279,11 @@ $log = Log::Log4perl->get_logger;
 #load the initialisation file
 my $cfgfile="$ENV{PLCFGFILE}";
 if(-f $cfgfile){
-   $log->debug("loading $cfgfile...\n");
+   $log->info("loading $cfgfile...\n");
    require $cfgfile;
 }
 else{
-   $log->error("cannot find $cfgfile\n");
+   $log->fatal("cannot find $cfgfile\n");
    die "cannot find $cfgfile";
 }
  
@@ -1185,7 +1293,7 @@ if(defined &get_cfgdb){
    $rcfgdb=get_cfgdb();
 }
 else{
-   $log->error("cannot get cfgdb\n");
+   $log->fatal("cannot get cfgdb\n");
    die "cannot get cfgdb";
 }
 #print Dumper(%$rcfgdb);
