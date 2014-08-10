@@ -18,7 +18,7 @@ my $SportIdSwimming=3;
 my $SportIdCore=10;
 my $SModeRunning="111000100";
 my $SModeCycling="111111100";
-my $interactive="";
+my $interactive="1";
 
 #---------------------------------------------------------------------------
 my %guitext;
